@@ -1,0 +1,37 @@
+# Find libyaml
+# ~~~~~~~~~~~~
+#
+# CMake module to search for YAML library
+# (library for parsing YAML files)
+#
+# If it's found it sets YAML_FOUND to TRUE
+# and following variables are set:
+#    YAML_INCLUDE_DIR
+#    YAML_LIBRARY
+
+FIND_PATH(YAML_INCLUDE_DIR yaml.h)
+FIND_LIBRARY(YAML_LIBRARY NAMES yaml libyaml)
+
+IF (YAML_INCLUDE_DIR AND YAML_LIBRARY)
+   SET(YAML_FOUND TRUE)
+ENDIF (YAML_INCLUDE_DIR AND YAML_LIBRARY)
+
+
+IF (YAML_FOUND)
+
+   IF (NOT YAML_FIND_QUIETLY)
+      MESSAGE(STATUS "Found LibYAML: ${YAML_LIBRARY}")
+   ENDIF (NOT YAML_FIND_QUIETLY)
+
+ELSE (YAML_FOUND)
+
+   IF (YAML_FIND_REQUIRED)
+     MESSAGE(FATAL_ERROR "Could not find LibYAML")
+   ELSE (YAML_FIND_REQUIRED)
+     IF (NOT YAML_FIND_QUIETLY)
+        MESSAGE(STATUS "Could not find LibYAML")
+     ENDIF (NOT YAML_FIND_QUIETLY)
+   ENDIF (YAML_FIND_REQUIRED)
+
+ENDIF (YAML_FOUND)
+

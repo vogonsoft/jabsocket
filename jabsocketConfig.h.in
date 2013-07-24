@@ -1,0 +1,5 @@
+// the configured options and settings for jabsocket
+#define jabsocket_VERSION_MAJOR @jabsocket_VERSION_MAJOR@
+#define jabsocket_VERSION_MINOR @jabsocket_VERSION_MINOR@
+#define jabsocket_VERSION_PATCH @jabsocket_VERSION_PATCH@
+

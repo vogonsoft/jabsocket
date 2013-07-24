@@ -1,0 +1,11 @@
+- Accept WebSocket messages that comprise of multiple frames.
+- Check the WebSocket version (only 13 permitted).
+- Implement stream resumption (after browser disconnects and reconnects).
+- Implement WebSocket ping/pong.
+- Implement SSL/TLS for connecting with the XMPP server
+- Thorough integration testing, especially with misbehaving clients.
+- Stress testing.
+- UTF-8 support.
+- Architecture and source code documentation
+- Doxygen support
+
