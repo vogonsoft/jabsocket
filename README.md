@@ -52,10 +52,10 @@ jabsocket was written to run on POSIX systems. At the moment it has only been
 tested on Linux.
 
 External dependencies:
-	* libevent 2.0.21
-	* Expat 2.1.0
-	* libyaml 0.1.3-1
-	* libssl 0.9.8
+* libevent 2.0.21
+* Expat 2.1.0
+* libyaml 0.1.3-1
+* libssl 0.9.8
 
 To build from source, you need to have CMake (version 2.8.0 or higher)
 installed. If your operating system does not have it and your distribution
