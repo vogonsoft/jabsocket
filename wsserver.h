@@ -44,7 +44,8 @@ struct _wsserver_t
 struct _wsconn_t
 {
 	wsserver_t *wsserver;
-	int state;
+	int ws_state; /* State of web socket */
+	int cm_state; /* State of connection manager */
 	struct bufferevent *bev;
 	request_t *req;
 	wsfbuffer_t *buffer;
@@ -77,8 +78,12 @@ void ws_set_cb(
 ws_cb_t ws_get_cb(wsserver_t *ws);
 
 void wsconn_write(wsconn_t *conn, void *data, size_t size);
-void wsconn_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
+void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	size_t reason_size);
+void wsconn_close(wsconn_t *conn);
+
+/* wsconn_onclose is called from CM when the connection is closed */
+void wsconn_onclosed(wsconn_t *conn);
 
 #endif /* _WSSERVER_H_ */
 

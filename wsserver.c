@@ -20,11 +20,20 @@ static wsconn_t *wsconn_create(
 static void wsconn_delete(wsconn_t *conn);
 
 /* States */
-enum _state_t
+enum _ws_state_t
 {
-        ST_START,
-        ST_RECEIVING,  /* receiving frames */
-        ST_CLOSING     /* closing connection */ 
+	WS_ST_START,
+	WS_ST_RECEIVING,  /* receiving frames */
+	WS_ST_CLOSING,    /* closing connection */
+	WS_ST_CLOSED
+};
+
+enum _cm_state_t
+{
+	CM_ST_START,
+	CM_ST_CREATED,
+	CM_ST_CLOSING,
+	CM_ST_CLOSED
 };
 
 wsserver_t *
@@ -96,6 +105,89 @@ Exit:
 	return;
 }
 
+static wsconn_t *wsconn_create(
+	wsserver_t *wsserver,
+	struct evconnlistener *listener,
+	evutil_socket_t fd,
+	struct sockaddr *address,
+	int socklen)
+{
+	wsconn_t *conn;
+	struct event_base *base;
+	struct bufferevent *bev;
+	
+	conn = (wsconn_t*) malloc(sizeof(*conn));
+	if (conn == NULL)
+		goto Error;
+	memset(conn, 0, sizeof(*conn));
+	conn->wsserver = wsserver;
+	conn->cb = wsserver->cb;
+	conn->cb_ctx = wsserver->cb_ctx;
+
+	base = evconnlistener_get_base(listener);
+	bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+	conn->bev = bev;
+
+	conn->ws_state = WS_ST_START;
+	conn->cm_state = CM_ST_START;
+	conn->req = rq_create();
+	if (conn->req == NULL)
+	{
+		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create request parser\n");
+		goto Error;
+	}
+	conn->buffer = wsfb_create();
+	if (conn->buffer == NULL)
+	{
+		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create websockframe buffer");
+		goto Error;
+	}
+
+	conn->message = NULL;
+	conn->message_length = 0;
+
+	conn->custom_ctx = (wsserver->create_cb)(conn);
+	if (conn->custom_ctx == NULL)
+		goto Error;
+	conn->cm_state = CM_ST_CREATED;
+
+	bufferevent_setcb(bev, wsconn_read_cb, wsconn_write_cb, wsconn_event_cb, conn);
+
+	bufferevent_enable(bev, EV_READ|EV_WRITE);
+
+	return conn;
+
+Error:
+	if (conn != NULL)
+	{
+		if (conn->custom_ctx != NULL)
+			(wsserver->delete_cb)(conn->custom_ctx);
+		if (conn->buffer != NULL)
+			wsfb_delete(conn->buffer);
+		if (conn->req != NULL)
+			rq_delete(conn->req);
+		free(conn);
+	}
+	return NULL;
+}
+
+static void wsconn_delete(wsconn_t *conn)
+{
+	if (conn->bev != NULL)
+		bufferevent_free(conn->bev);
+	if (conn->req != NULL)
+		rq_delete (conn->req);
+	if (conn->buffer != NULL)
+		wsfb_delete(conn->buffer);
+	free(conn->message);
+	free(conn->reason);
+	if (conn->cb != NULL)
+		conn->cb(conn, WSCB_DELETE, conn->custom_ctx);
+	free(conn);
+	LOG(LOG_INFO, "wsserver.c:wsconn_delete (%s:%s) Deleting connection\n",
+		conn->host, conn->serv);
+}
+
 static void
 wsconn_read_cb(struct bufferevent *bev, void *ctx)
 {
@@ -114,9 +206,9 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 	output = bufferevent_get_output(bev);
 	length = evbuffer_get_length(input);
 	
-	switch (conn->state)
+	switch (conn->ws_state)
 	{
-		case ST_START:
+		case WS_ST_START:
 			while (1)
 			{
 				line = evbuffer_readln(input, &line_length, EVBUFFER_EOL_CRLF);
@@ -150,7 +242,7 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 							"\r\n",
 							str_get_string(&accept_str) );
 						evbuffer_add(output, response, strlen(response));
-						conn->state = ST_RECEIVING;
+						conn->ws_state = WS_ST_RECEIVING;
 						/* TODO: read any remaining bytes from input and write
 						   to output */
 						if (conn->cb != NULL)
@@ -166,7 +258,7 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 				}
 			} /* while (1) */
 			break;
-		case ST_RECEIVING:
+		case WS_ST_RECEIVING:
 			input_buffer = (unsigned char*) malloc(length);
 			if (input_buffer == NULL)
 				goto Error;
@@ -213,8 +305,7 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 									conn->reason_length = 0;
 							}
 						}
-						conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
-						wsconn_close(conn, conn->status, conn->reason,
+						wsconn_initiate_close(conn, conn->status, conn->reason,
 							conn->reason_length);
 					}
 				}
@@ -231,9 +322,7 @@ Error:
 	free(conn->message);
 	conn->message = NULL;
 	conn->message_length = 0;
-	conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
-	wsconn_close(conn, conn->status, conn->reason,
-		conn->reason_length);
+	wsconn_close(conn);
 }
 
 static void
@@ -243,10 +332,10 @@ wsconn_event_cb(struct bufferevent *bev, short events, void *ctx)
 
 	LOG(LOG_INFO, "wsserver.c:wsconn_event_cb (%s:%s) events=%h", conn->host, conn->serv, events);
 	if (conn == NULL)
-	return;
+		return;
 	if (events & (BEV_EVENT_ERROR|BEV_EVENT_EOF))
 	{
-		wsconn_delete(conn);
+		wsconn_close(conn);
 	}
 }
 
@@ -260,7 +349,7 @@ wsconn_write_cb(struct bufferevent *bev, void *ctx)
 	output = bufferevent_get_output(bev);
 	length = evbuffer_get_length(output);
 
-	if ((conn->state == ST_CLOSING) && (length == 0))
+	if ((conn->ws_state == WS_ST_CLOSING) && (length == 0))
 	{
 		wsconn_delete(conn);
 	}
@@ -357,7 +446,21 @@ void wsconn_write(wsconn_t *conn, void *data, size_t size)
 	wsconn_write_frame(conn, 1, data, size); /* opcode=1 - text frame */
 }
 
-void wsconn_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
+void wsconn_close(wsconn_t *conn)
+{
+	if (conn->bev != NULL)
+		bufferevent_free(conn->bev);
+	conn->ws_state = WS_ST_CLOSED;
+
+	if (conn->cm_state == CM_ST_CREATED)
+	{
+		conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
+		conn->cm_state = CM_ST_CLOSING;
+	}
+}
+
+void
+wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	size_t reason_size)
 {
 	buffer_t *buffer = NULL;
@@ -385,93 +488,30 @@ void wsconn_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	buffer_peek_data(buffer, &message, &message_size);
 	wsconn_write_frame(conn, 8, message, message_size); /* opcode=1 - Close frame */
 	buffer_remove_data(buffer, message_size);
+	conn->ws_state = WS_ST_CLOSING;
+	
+	if (conn->cm_state == CM_ST_CREATED)
+	{
+		conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
+		conn->cm_state = CM_ST_CLOSING;
+	}
 
 Exit:
 	if (buffer != NULL)
 		buffer_delete(buffer);
-	conn->state = ST_CLOSING;
+	conn->ws_state = WS_ST_CLOSING;
 }
 
-static wsconn_t *wsconn_create(
-	wsserver_t *wsserver,
-	struct evconnlistener *listener,
-	evutil_socket_t fd,
-	struct sockaddr *address,
-	int socklen)
+void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
+	size_t reason_size);
+
+void
+wsconn_onclosed(wsconn_t *conn)
 {
-	wsconn_t *conn;
-	struct event_base *base;
-	struct bufferevent *bev;
-	void *custom_ctx = NULL;
-	
-	conn = (wsconn_t*) malloc(sizeof(*conn));
-	if (conn == NULL)
-		goto Error;
-	memset(conn, 0, sizeof(*conn));
-	conn->wsserver = wsserver;
-	conn->cb = wsserver->cb;
-	conn->cb_ctx = wsserver->cb_ctx;
+	unsigned char *reason = (unsigned char *) "XMPP server closed";
 
-	base = evconnlistener_get_base(listener);
-	bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-	conn->bev = bev;
-
-	conn->state = ST_START;
-	conn->req = rq_create();
-	if (conn->req == NULL)
-	{
-		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create request parser\n");
-		goto Error;
-	}
-	conn->buffer = wsfb_create();
-	if (conn->buffer == NULL)
-	{
-		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create websockframe buffer");
-		goto Error;
-	}
-
-	conn->message = NULL;
-	conn->message_length = 0;
-
-	custom_ctx = (wsserver->create_cb)(conn);
-	if (custom_ctx == NULL)
-		goto Error;
-	conn->custom_ctx = custom_ctx;
-
-	bufferevent_setcb(bev, wsconn_read_cb, wsconn_write_cb, wsconn_event_cb, conn);
-
-	bufferevent_enable(bev, EV_READ|EV_WRITE);
-
-	return conn;
-
-Error:
-	if (conn != NULL)
-	{
-		if (custom_ctx != NULL)
-			(wsserver->delete_cb)(custom_ctx);
-		if (conn->buffer != NULL)
-			wsfb_delete(conn->buffer);
-		if (conn->req != NULL)
-			rq_delete(conn->req);
-		free(conn);
-	}
-	return NULL;
-}
-
-static void wsconn_delete(wsconn_t *conn)
-{
-	if (conn->bev != NULL)
-		bufferevent_free(conn->bev);
-	if (conn->req != NULL)
-		rq_delete (conn->req);
-	if (conn->buffer != NULL)
-		wsfb_delete(conn->buffer);
-	free(conn->message);
-	free(conn->reason);
-	if (conn->cb != NULL)
-		conn->cb(conn, WSCB_DELETE, conn->custom_ctx);
-	free(conn);
-	LOG(LOG_INFO, "wsserver.c:wsconn_delete (%s:%s) Deleting connection\n",
-		conn->host, conn->serv);
+	conn->cm_state = CM_ST_CLOSED;
+	if (conn->ws_state == WS_ST_RECEIVING)
+		wsconn_initiate_close( conn, 1001, reason, strlen((char *) reason) );
 }
 

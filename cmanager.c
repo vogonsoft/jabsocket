@@ -282,8 +282,7 @@ cm_eventcb(struct bufferevent *bev, short events, void *ptr)
 		char *reason = "XMPP connection failed";
 		printf("   BEV_EVENT_ERROR: %s\n",
 			evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR() ) );
-			wsconn_close(cm->conn, 1000, (unsigned char *) reason,
-				strlen(reason));
+		wsconn_onclosed(cm->conn);
 		cm_close(cm);
 	}
 }
