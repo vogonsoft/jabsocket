@@ -67,30 +67,38 @@ Building
 
 You first have to use CMake to generate the Makefile. To use the default
 configuration (which is release):
+
 	cmake .
 
 To generate Makefile for debug:
+
 	cmake -D CMAKE_BUILD_TYPE=DEBUG .
 
 To generate Makefile for release
+
 	cmake -D CMAKE_BUILD_TYPE=RELEASE .
 
 After you generated the Makefile, run:
+
 	make
 
 To run make verbosely, run:
+
 	make VERBOSE=1
 
 Building binary package:
+
 	make package
 
 Building source package:
+
 	make package_source
 
 Installation
 ------------
 
 Run this as a superuser or use sudo:
+
 	make install
 
 Unit test

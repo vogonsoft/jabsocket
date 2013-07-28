@@ -111,15 +111,36 @@ git clone git@github.com:vogonsoft/jabsocket.git
 
 Run cmake to generate the Makefile:
 
+You first have to use CMake to generate the Makefile. To use the default
+configuration (which is release):
+
 .......
 cmake .
 .......
+
+To generate Makefile for debug:
+
+.................................
+cmake -D CMAKE_BUILD_TYPE=DEBUG .
+.................................
+
+To generate Makefile for release
+
+...................................
+cmake -D CMAKE_BUILD_TYPE=RELEASE .
+...................................
 
 Build:
 
 ....
 make
 ....
+
+To run make verbosely, run:
+
+..............
+make VERBOSE=1
+..............
 
 Run unit tests:
 
