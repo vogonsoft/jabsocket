@@ -169,8 +169,8 @@ listen: 0.0.0.0
 
 # Acceptable origin
 origin:
-  - firstdomain.com
-  - seconddomain.com
+  - http://firstdomain.com
+  - http://seconddomain.com
 
 # Minimum log level
 log_level: LOG_DEBUG
@@ -185,6 +185,35 @@ jabsocket currently recognizes the following configuration parameters:
   connection
 - log_level - minimum log level - one of the standard syslog levels: LOG_EMERG
   is the highest and LOG_DEBUG is the lowest
+
+Web origins listed under "origin" key are patterns that define which origins
+will be accepted. In the opening handshake of a WebSocket connection, the
+browser will send a header that looks like this:
+
+............................
+Origin: http://vogonsoft.com
+............................
+
+In that string, "http" is scheme, "vogonsoft.com" is the host, and port is not
+specified. If you want your server to accept only this origin, put this in the
+configuration:
+
+...........................
+origin:
+  - http://vogonsoft.com
+...........................
+
+If you want to accept vogonsoft.com and all its subdomains, use the pattern:
+
+...........................
+origin:
+  - http://vogonsoft.com
+  - http://*.vogonsoft.com
+...........................
+
+The patterns in the list of origins have the same syntax as file patterns: "*"
+matches any sequence of 0 or more characters, and "?" matches any single
+character.
 
 Recognized log levels, from highest to lowest:
 

@@ -82,6 +82,7 @@ void ws_set_cb(
 ws_cb_t ws_get_cb(wsserver_t *ws);
 
 void wsconn_write(wsconn_t *conn, void *data, size_t size);
+void wsconn_handshake(wsconn_t *conn);
 void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	size_t reason_size);
 void wsconn_close(wsconn_t *conn);

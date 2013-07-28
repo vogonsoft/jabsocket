@@ -2,6 +2,17 @@
 #include <string.h>
 #include <ctype.h>
 
+/* General functionality */
+
+void
+sz_tolower(char *str)
+{
+	char *pch;
+	
+	for (pch = str; *pch != '\0'; pch++)
+		*pch = tolower(*pch);
+}
+
 /* String buffer */
 
 void
@@ -113,6 +124,18 @@ str_append_char(str_t *str, char ch)
 	str->buffer[str->length] = ch;
 	str->buffer[str->length + 1] = '\0';
 	str->length++;
+}
+
+void
+str_tolower(str_t *str)
+{
+	char *pch;
+	size_t i;
+	
+	for (pch = str->buffer, i = 0; i < str->length; i++, pch++)
+	{
+		*pch = tolower(*pch);
+	}
 }
 
 /* Data buffer */

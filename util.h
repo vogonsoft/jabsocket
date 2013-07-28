@@ -6,6 +6,9 @@
 
 typedef uint8_t byte;
 
+/* General functionality */
+void sz_tolower(char *str);
+
 /* String buffer */
 
 typedef struct _str_t
@@ -26,6 +29,7 @@ void str_copy_string(str_t *dst, str_t *src);
 void str_trim_beginning(str_t *str, const char *str_in);
 void str_trim_whitespace(str_t *str, const char *str_in);
 void str_append_char(str_t *str, char ch);
+void str_tolower(str_t *str);
 
 /* Data buffer */
 

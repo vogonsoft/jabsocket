@@ -193,6 +193,7 @@ _process(request_t *h, char *key, char *value)
 	else if (strcasecmp(key, "Origin") == 0)
 	{
 		str_trim_beginning(&h->origin_str, value);
+		str_tolower(&h->origin_str);
 	}
 	free((void*)key);
 }

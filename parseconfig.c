@@ -102,6 +102,7 @@ config_parse(jsconf_t *conf, const char *file)
 					if (new_origin == NULL)
 						goto Exit;
 					new_origin->url = strdup((char*) token.data.scalar.value);
+					sz_tolower(new_origin->url);
 					new_origin->next = conf->origin_list;
 					conf->origin_list = new_origin;
 				}
@@ -177,9 +178,8 @@ config_check_origin(jsconf_t *conf, const char *origin)
 
 	for (; current != NULL; current = current->next)
 	{
-		printf("  config_check_origin: url is %s\n", current->url);
 		res = fnmatch(current->url, origin, 0);
-		if ( !fnmatch(current->url, origin, 0) )
+		if (res == 0)
 			return 1;
 	}
 	return 0;

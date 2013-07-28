@@ -198,18 +198,13 @@ static void
 wsconn_read_cb(struct bufferevent *bev, void *ctx)
 {
 	wsconn_t *conn = (wsconn_t*) ctx;
-	struct evbuffer *input, *output;
+	struct evbuffer *input;
 	size_t length;
 	char *line;
 	size_t line_length;
 	unsigned char *input_buffer;
-	char accept_buffer[64];
-	str_t accept_str;
-
-	str_init( &accept_str, accept_buffer, sizeof(accept_buffer) );
 
 	input = bufferevent_get_input(bev);
-	output = bufferevent_get_output(bev);
 	length = evbuffer_get_length(input);
 	
 	switch (conn->ws_state)
@@ -226,35 +221,7 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 						goto Error;
 					if (rq_done(conn->req))
 					{
-						static char response[4096];
-
-						/* TODO: check if conn->req->host_str is in
-						   the list of origins in wsserver->conf->origin_list */
-						if (!rq_protocols_contains(conn->req, "xmpp") )
-						{
-							LOG(LOG_ERR,
-								"wsserver.c:wsconn_read_cb: client does not support xmpp");
-							goto Error;
-						}
-						LOG(LOG_DEBUG,
-							"wsserver.c:wsconn_read_cb: got the request");
-						rq_get_response(
-							rq_get_websocket_key(conn->req),
-							&accept_str);
-						snprintf( response, sizeof(response),
-							"HTTP/1.1 101 Switching Protocols\r\n"
-							"Upgrade: websocket\r\n"
-							"Connection: Upgrade\r\n"
-							"Sec-WebSocket-Protocol: xmpp\r\n"
-							"Sec-WebSocket-Accept: %s\r\n"
-							"\r\n",
-							str_get_string(&accept_str) );
-						evbuffer_add(output, response, strlen(response));
-						conn->ws_state = WS_ST_RECEIVING;
-						/* TODO: read any remaining bytes from input and write
-						   to output */
-						if (conn->cb != NULL)
-							conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
+						wsconn_handshake(conn);
 						break;
 					}
 				}
@@ -331,6 +298,59 @@ Error:
 	conn->message = NULL;
 	conn->message_length = 0;
 	wsconn_close(conn);
+}
+
+void
+wsconn_handshake(wsconn_t *conn)
+{
+	static char response[4096];
+	str_t accept_str;
+	char accept_buffer[64];
+	struct evbuffer *output;
+	char *reason;
+
+	str_init( &accept_str, accept_buffer, sizeof(accept_buffer) );
+	output = bufferevent_get_output(conn->bev);
+
+	/* TODO: check if conn->req->host_str is in
+	   the list of origins in wsserver->conf->origin_list. If not,
+	   respond 403 Forbidden.
+	 */
+	if ( !config_check_origin( conn->wsserver->conf, rq_get_origin(conn->req) ) )
+	{
+		snprintf( response, sizeof(response),
+			"HTTP/1.1 403 Forbidden\r\n"
+			"\r\n",
+			str_get_string(&accept_str) );
+			reason = "Rejecting origin";
+			evbuffer_add(output, response, strlen(response));
+			wsconn_initiate_close( conn, 1011, reason, strlen(reason) );
+			return;
+	}
+	if (!rq_protocols_contains(conn->req, "xmpp") )
+	{
+		LOG(LOG_ERR,
+			"wsserver.c:wsconn_read_cb: client does not support xmpp");
+		/* TODO: send rejection */
+		return;
+	}
+	LOG(LOG_DEBUG,
+		"wsserver.c:wsconn_read_cb: got the request");
+	rq_get_response(
+		rq_get_websocket_key(conn->req),
+		&accept_str);
+	snprintf( response, sizeof(response),
+		"HTTP/1.1 101 Switching Protocols\r\n"
+		"Upgrade: websocket\r\n"
+		"Connection: Upgrade\r\n"
+		"Sec-WebSocket-Protocol: xmpp\r\n"
+		"Sec-WebSocket-Accept: %s\r\n"
+		"\r\n",
+		str_get_string(&accept_str) );
+	evbuffer_add(output, response, strlen(response));
+	conn->ws_state = WS_ST_RECEIVING;
+	if (conn->cb != NULL)
+		conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
 }
 
 static void

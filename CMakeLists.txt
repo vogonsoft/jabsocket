@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 2.6)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 project(jabsocket)
+
+set(CMAKE_C_FLAGS "")
+set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_C_FLAGS_RELEASE "-O2")
+set(CMAKE_CXX_FLAGS "")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+
 add_executable(jabsocket base64.c cmanager.c framer.c log.c main.c parseconfig.c
 	rqparser.c streamparse.c util.c websockframe.c wsserver.c)
 

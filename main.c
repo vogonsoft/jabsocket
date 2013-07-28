@@ -167,6 +167,7 @@ main(int argc, char **argv)
 		fprintf(stderr, "Error creating WebSocket server\n");
 		exit(-1);
 	}
+	ws_set_config(wsserver, conf);
 	evutil_freeaddrinfo(answer);
 
 	ws_set_cb(wsserver, cm_create, cm_delete, cmanager, NULL);
