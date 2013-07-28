@@ -39,10 +39,47 @@ void TestConfig(CuTest *tc)
 	config_delete(conf);
 }
 
+void TestCheckOrigin(CuTest *tc)
+{
+	int res;
+	jsconf_t *conf;
+	
+	conf = config_create();
+	CuAssertPtrNotNull(tc, conf);
+	
+	res = config_parse(conf, "./test/jabsocket-regex.conf");
+	CuAssertTrue(tc, res);
+	
+	CuAssertTrue( tc, config_check_origin(conf, "firstdomain.com") );
+	CuAssertTrue( tc, config_check_origin(conf, "seconddomain.com") );
+	CuAssertTrue( tc, config_check_origin(conf, "subdomain.seconddomain.com") );
+	CuAssertTrue( tc, !config_check_origin(conf, "www.firstdomain.com") );
+	CuAssertTrue( tc, !config_check_origin(conf, "other.com") );
+
+	config_delete(conf);
+
+	/* Test with a configuration file with no origin; then any origin domain
+	   should be accepted. */
+
+	conf = config_create();
+	CuAssertPtrNotNull(tc, conf);
+	
+	res = config_parse(conf, "./test/jabsocket-noorigin.conf");
+	CuAssertTrue(tc, res);
+
+	CuAssertTrue( tc, config_check_origin(conf, "firstdomain.com") );
+	CuAssertTrue( tc, config_check_origin(conf, "seconddomain.com") );
+	CuAssertTrue( tc, config_check_origin(conf, "subdomain.seconddomain.com") );
+	CuAssertTrue( tc, config_check_origin(conf, "subdomain.vogonsoft.com") );
+
+	config_delete(conf);
+}
+
 CuSuite* ConfigGetSuite()
 {
 	CuSuite* suite = CuSuiteNew();
 	SUITE_ADD_TEST(suite, TestConfig);
+	SUITE_ADD_TEST(suite, TestCheckOrigin);
 	return suite;
 }
 

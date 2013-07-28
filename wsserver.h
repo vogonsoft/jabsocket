@@ -6,6 +6,7 @@
 #include <event2/bufferevent.h>
 #include "rqparser.h"
 #include "websockframe.h"
+#include "parseconfig.h"
 
 /* Forward declarations */
 typedef struct _wsserver_t wsserver_t;
@@ -39,6 +40,7 @@ struct _wsserver_t
 	ws_delete_cb_t delete_cb;
 	ws_cb_t cb;
 	void *cb_ctx;
+	jsconf_t *conf;
 };
 
 struct _wsconn_t
@@ -67,6 +69,8 @@ struct _wsconn_t
 
 wsserver_t *ws_create(struct event_base *base, void *sin, size_t size);
 void ws_delete(wsserver_t *ws);
+
+void ws_set_config(wsserver_t *ws, jsconf_t *conf);
 
 void ws_set_cb(
 				wsserver_t *ws,

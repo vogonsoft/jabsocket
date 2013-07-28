@@ -78,6 +78,12 @@ ws_delete(wsserver_t *ws)
 	free(ws);
 }
 
+void
+ws_set_config(wsserver_t *ws, jsconf_t *conf)
+{
+	ws->conf = conf;
+}
+
 static void
 ws_accept_conn_cb(struct evconnlistener *listener,
     evutil_socket_t fd, struct sockaddr *address, int socklen,
@@ -222,6 +228,8 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 					{
 						static char response[4096];
 
+						/* TODO: check if conn->req->host_str is in
+						   the list of origins in wsserver->conf->origin_list */
 						if (!rq_protocols_contains(conn->req, "xmpp") )
 						{
 							LOG(LOG_ERR,

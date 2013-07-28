@@ -26,6 +26,7 @@ jsconf_t *config_create();
 void config_delete(jsconf_t *conf);
 
 int config_parse(jsconf_t *conf, const char *file);
+int config_check_origin(jsconf_t *conf, const char *origin);
 
 #endif /* _PARSECONFIG_H_ */
 

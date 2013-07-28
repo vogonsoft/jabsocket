@@ -81,7 +81,7 @@ void TestFramer(CuTest *tc)
 	CuAssertTrue(tc, res);
 	res = framer_get_frame(framer, &data, &size);
 	CuAssertTrue(tc, res);
-	CuAssertTrue(tc, (memcmp(data, "</stream:stream>", 17) == 0) );
+	CuAssertTrue(tc, (memcmp(data, "</stream:stream>", 16) == 0) );
 	// show_bytes(data, size);
 
 	/* We are at the end now */

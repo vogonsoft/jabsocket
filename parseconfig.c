@@ -1,5 +1,8 @@
 #include "parseconfig.h"
 #include <errno.h>
+#include <sys/types.h>
+#include <regex.h>
+#include <fnmatch.h>
 
 jsconf_t *
 config_create()
@@ -159,5 +162,26 @@ Exit:
 	if (parser_initialized)
 		yaml_parser_delete(&parser);
 	return res;
+}
+
+int
+config_check_origin(jsconf_t *conf, const char *origin)
+{
+	origin_t *current;
+	int res;
+	
+	current = conf->origin_list;
+	if (current == NULL) /* If the origin list in the config is empty,
+	                        any origin is accepted */
+		return 1;
+
+	for (; current != NULL; current = current->next)
+	{
+		printf("  config_check_origin: url is %s\n", current->url);
+		res = fnmatch(current->url, origin, 0);
+		if ( !fnmatch(current->url, origin, 0) )
+			return 1;
+	}
+	return 0;
 }
 
