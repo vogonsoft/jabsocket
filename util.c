@@ -25,6 +25,12 @@ str_init(str_t *str, char *buffer, size_t size)
 	// memset(buffer, 0, size);
 }
 
+void str_clear(str_t *str)
+{
+	str->length = 0;
+	str->buffer[0] = '\0';
+}
+
 size_t
 str_get_length(str_t *str)
 {
@@ -136,6 +142,12 @@ str_tolower(str_t *str)
 	{
 		*pch = tolower(*pch);
 	}
+}
+
+int
+str_is_equal_nocase(str_t *str, const char *other)
+{
+	return (strcasecmp(str->buffer, other) == 0);
 }
 
 /* Data buffer */

@@ -39,6 +39,22 @@ rq_create()
 		h->done = 0;
 		h->error = 0;
 		h->state = ST_START;
+
+		str_init(
+			&h->method_str,
+			h->method_buffer,
+			sizeof(h->method_buffer) );
+
+		str_init(
+			&h->resource_str,
+			h->resource_buffer,
+			sizeof(h->resource_buffer) );
+
+		str_init(
+			&h->protocol_str,
+			h->protocol_buffer,
+			sizeof(h->protocol_buffer) );
+
 		str_init( &h->host_str, h->host_buffer, sizeof(h->host_buffer) );
 		str_init( &h->upgrade_str, h->upgrade_buffer, sizeof(h->upgrade_buffer) );
 		str_init(
@@ -67,6 +83,7 @@ rq_create()
 
 		h->protocols_head = NULL;
 		h->protocol_count = 0;
+		h->error_code = 0;
 	}
 	return h;
 }
@@ -75,9 +92,6 @@ void
 rq_delete(request_t *h)
 {
 	struct _strlist_t *current, *next;
-
-	// free(h->websocket_version);
-	// free(h->origin);
 
 	/* Delete the list of protocols */
 	current = h->protocols_head;
@@ -92,6 +106,30 @@ rq_delete(request_t *h)
 }
 
 void
+rq_clear(request_t *h)
+{
+	h->length = 0;
+	h->done = 0;
+	h->error = 0;
+	h->state = ST_START;
+
+	str_clear(&h->method_str);
+	str_clear(&h->resource_str);
+	str_clear(&h->protocol_str);
+
+	str_clear(&h->host_str);
+	str_clear(&h->upgrade_str);
+	str_clear(&h->connection_str);
+	str_clear(&h->ws_key_str);
+	str_clear(&h->ws_protocol_str);
+	str_clear(&h->ws_version_str);
+	str_clear(&h->origin_str);
+	h->protocols_head = NULL;
+	h->protocol_count = 0;
+	h->error_code = 0;
+}
+
+void
 rq_add_line(request_t *h, const char *line)
 {
 	size_t len = strlen(line);
@@ -100,7 +138,7 @@ rq_add_line(request_t *h, const char *line)
 	switch (h->state)
 	{
 		case ST_START:
-			res = parse_request_line(line, &h->resource);
+			res = parse_request_line(h, line);
 			if (res == 0)
 			{
 				h->error = 1;
@@ -199,12 +237,6 @@ _process(request_t *h, char *key, char *value)
 }
 
 int
-rq_failure(request_t *h)
-{
-	return 0;
-}
-
-int
 rq_done(request_t *h)
 {
 	return h->done;
@@ -265,10 +297,10 @@ rq_get_protocol_count(request_t *h)
 }
 
 int
-parse_request_line(const char *line, char **resource)
+parse_request_line(request_t *h, const char *line)
 {
 	char *line_copy = NULL;
-	char *method, *protocol, *resource_tmp;
+	char *method, *protocol, *resource;
 	
 	line_copy = strdup(line);
 	if (line_copy == NULL)
@@ -277,27 +309,24 @@ parse_request_line(const char *line, char **resource)
 	method = strtok(line_copy, " \t");
 	if (method == NULL)
 		goto Error;
-	if (strcmp(method, "GET") != 0) /* We only accept GET method */
+	str_set_string(&h->method_str, method);
+
+	resource = strtok(NULL, " \t");
+	if (resource == NULL)
 		goto Error;
-	resource_tmp = strtok(NULL, " \t");
-	if (resource_tmp == NULL)
-		goto Error;
+	str_set_string(&h->resource_str, resource);
+
 	protocol = strtok(NULL, " \t");
 	if (protocol == NULL)
 		goto Error;
-	if (strcmp(protocol, "HTTP/1.1") != 0) /* We only accept HTTP/1.1 */
-		goto Error;
+	str_set_string(&h->protocol_str, resource);
 	
-	*resource = strdup(resource_tmp);
-	if (resource == NULL)
-		return 0;
 	free(line_copy);
 	return 1;
 
 Error:
 	free(line_copy);
 	return 0;
-
 }
 
 char *trim_beginning(char *str)
@@ -317,7 +346,7 @@ char *trim_beginning(char *str)
 }
 
 #define MAGIC_STRING "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-void rq_get_response(char *challenge, str_t *response)
+void rq_get_access(char *challenge, str_t *response)
 {
 	char buff1[1024];
 	unsigned char digest[SHA_DIGEST_LENGTH];
@@ -387,6 +416,17 @@ rq_protocols_contains(request_t *h, const char *protocol)
 	{
 		if (strcmp(str_get_string(&x->el_str), protocol) == 0)
 			return 1;
+	}
+	return 0;
+}
+
+int
+rq_analyze(request_t *h, jsconf_t *conf, str_t *response)
+{
+	if ( !str_is_equal_nocase(&h->method_str, "GET") )
+	{
+		str_set_string(response, "405 Method Not Allowed\r\n\r\n");
+		return 0;
 	}
 	return 0;
 }

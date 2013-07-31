@@ -19,6 +19,7 @@ typedef struct _str_t
 } str_t;
 
 void str_init(str_t *str, char *buffer, size_t size);
+void str_clear(str_t *str);
 size_t str_get_length(str_t *str);
 size_t str_get_capacity(str_t *str);
 char *str_get_string(str_t *str);
@@ -30,6 +31,7 @@ void str_trim_beginning(str_t *str, const char *str_in);
 void str_trim_whitespace(str_t *str, const char *str_in);
 void str_append_char(str_t *str, char ch);
 void str_tolower(str_t *str);
+int str_is_equal_nocase(str_t *str, const char *other);
 
 /* Data buffer */
 

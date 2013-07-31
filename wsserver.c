@@ -283,7 +283,7 @@ wsconn_handshake(wsconn_t *conn)
 	}
 	LOG(LOG_DEBUG,
 		"wsserver.c:wsconn_read_cb: got the request");
-	rq_get_response(
+	rq_get_access(
 		rq_get_websocket_key(conn->req),
 		&accept_str);
 	snprintf( response, sizeof(response),
