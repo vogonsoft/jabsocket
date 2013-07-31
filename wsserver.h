@@ -48,6 +48,8 @@ struct _wsconn_t
 	wsserver_t *wsserver;
 	int ws_state; /* State of web socket */
 	int cm_state; /* State of connection manager */
+	int fl_ws_closing; /* Initiated closing of web socket */
+	int fl_cm_closed;  /* wsconn_onclosed has been called */
 	struct bufferevent *bev;
 	request_t *req;
 	wsfbuffer_t *buffer;

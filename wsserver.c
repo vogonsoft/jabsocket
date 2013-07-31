@@ -8,8 +8,12 @@ static void ws_accept_conn_cb(struct evconnlistener *listener,
     void *ctx);
 static void wsconn_read_cb(struct bufferevent *bev, void *ctx);
 static void wsconn_write_cb(struct bufferevent *bev, void *ctx);
-
 static void wsconn_event_cb(struct bufferevent *bev, short events, void *ctx);
+
+static void wsconn_process_frame(wsconn_t *conn);
+
+void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
+	size_t reason_size);
 
 static wsconn_t *wsconn_create(
 	wsserver_t *wsserver,
@@ -136,6 +140,8 @@ static wsconn_t *wsconn_create(
 
 	conn->ws_state = WS_ST_START;
 	conn->cm_state = CM_ST_START;
+	conn->fl_ws_closing = 0;
+	conn->fl_cm_closed = 0;
 	conn->req = rq_create();
 	if (conn->req == NULL)
 	{
@@ -234,60 +240,7 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 			} /* while (1) */
 			break;
 		case WS_ST_RECEIVING:
-			input_buffer = (unsigned char*) malloc(length);
-			if (input_buffer == NULL)
-				goto Error;
-			evbuffer_remove(input, input_buffer, length);
-			wsfb_append(conn->buffer, input_buffer, length);
-			free(input_buffer);
-			while (wsfb_have_message(conn->buffer))
-			{
-				int opcode;
-				free(conn->message);
-				wsfb_get_message(conn->buffer, &opcode, &conn->message,
-					&conn->message_length);
-				if (conn->cb != NULL)
-				{
-					if (opcode == 1)
-						conn->cb(conn, WSCB_MESSAGE, conn->custom_ctx);
-					else if (opcode == 8) /* Close frame */
-					{
-						uint16_t *status_network;
-						
-						if (conn->message_length < 2)
-						{
-							conn->status = (uint16_t) 1001;
-							free(conn->reason);
-							conn->reason = NULL;
-							conn->reason_length = 0;
-						}
-						else
-						{
-							status_network = (uint16_t*)conn->message;
-							conn->status = ntohs(*status_network);
-							if (conn->message_length > 2)
-							{
-								conn->reason = (unsigned char*)malloc(
-									conn->message_length - 2);
-								if (conn->reason != NULL)
-								{
-									memcpy(conn->reason, (conn->message+2),
-										conn->message_length - 2);
-									conn->reason_length =
-										conn->message_length-2;
-								}
-								else
-									conn->reason_length = 0;
-							}
-						}
-						wsconn_initiate_close(conn, conn->status, conn->reason,
-							conn->reason_length);
-					}
-				}
-				free(conn->message);
-				conn->message = NULL;
-				conn->message_length = 0;
-			}
+			wsconn_process_frame(conn);
 			break;
 	}
 	return;
@@ -312,20 +265,14 @@ wsconn_handshake(wsconn_t *conn)
 	str_init( &accept_str, accept_buffer, sizeof(accept_buffer) );
 	output = bufferevent_get_output(conn->bev);
 
-	/* TODO: check if conn->req->host_str is in
-	   the list of origins in wsserver->conf->origin_list. If not,
-	   respond 403 Forbidden.
-	 */
 	if ( !config_check_origin( conn->wsserver->conf, rq_get_origin(conn->req) ) )
 	{
 		snprintf( response, sizeof(response),
 			"HTTP/1.1 403 Forbidden\r\n"
-			"\r\n",
-			str_get_string(&accept_str) );
-			reason = "Rejecting origin";
-			evbuffer_add(output, response, strlen(response));
-			wsconn_initiate_close( conn, 1011, reason, strlen(reason) );
-			return;
+			"\r\n" );
+		evbuffer_add(output, response, strlen(response));
+		wsconn_close(conn);
+		return;
 	}
 	if (!rq_protocols_contains(conn->req, "xmpp") )
 	{
@@ -352,6 +299,83 @@ wsconn_handshake(wsconn_t *conn)
 	if (conn->cb != NULL)
 		conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
 }
+
+static void
+wsconn_process_frame(wsconn_t *conn)
+{
+	struct evbuffer *input;
+	size_t length;
+	char *line;
+	size_t line_length;
+	unsigned char *input_buffer;
+	struct bufferevent *bev;
+
+	bev = conn->bev;
+	input = bufferevent_get_input(bev);
+	length = evbuffer_get_length(input);
+	bev = conn->bev;
+
+	input_buffer = (unsigned char*) malloc(length);
+	if (input_buffer == NULL)
+	{
+		LOG(LOG_WARNING,
+			"wsserver.c:wsconn_process_frame: malloc failed");
+		return;
+	}
+	evbuffer_remove(input, input_buffer, length);
+	wsfb_append(conn->buffer, input_buffer, length);
+	free(input_buffer);
+	while (wsfb_have_message(conn->buffer))
+	{
+		int opcode;
+		free(conn->message);
+		wsfb_get_message(conn->buffer, &opcode, &conn->message,
+			&conn->message_length);
+		if (conn->cb != NULL)
+		{
+			if (opcode == 1)
+				conn->cb(conn, WSCB_MESSAGE, conn->custom_ctx);
+			else if (opcode == 8) /* Close frame */
+			{
+				uint16_t *status_network;
+				
+				if (conn->message_length < 2)
+				{
+					conn->status = (uint16_t) 1001;
+					free(conn->reason);
+					conn->reason = NULL;
+					conn->reason_length = 0;
+				}
+				else
+				{
+					status_network = (uint16_t*)conn->message;
+					conn->status = ntohs(*status_network);
+					if (conn->message_length > 2)
+					{
+						conn->reason = (unsigned char*)malloc(
+							conn->message_length - 2);
+						if (conn->reason != NULL)
+						{
+							memcpy(conn->reason, (conn->message+2),
+								conn->message_length - 2);
+							conn->reason_length =
+								conn->message_length-2;
+						}
+						else
+							conn->reason_length = 0;
+					}
+				}
+				wsconn_initiate_close(conn, conn->status, conn->reason,
+					conn->reason_length);
+				break;
+			}
+		}
+		free(conn->message);
+		conn->message = NULL;
+		conn->message_length = 0;
+	}
+}
+
 
 static void
 wsconn_event_cb(struct bufferevent *bev, short events, void *ctx)
@@ -485,6 +509,8 @@ void wsconn_close(wsconn_t *conn)
 		conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
 		conn->cm_state = CM_ST_CLOSING;
 	}
+	else if (conn->fl_cm_closed)
+		wsconn_delete(conn);
 }
 
 void
@@ -496,6 +522,9 @@ wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	unsigned char *message;
 	size_t message_size;
 	int res;
+
+	if (conn->fl_ws_closing) /* Closing has already been initiated */
+		return;
 
 	buffer = buffer_create();
 	if (buffer == NULL)
@@ -528,10 +557,8 @@ Exit:
 	if (buffer != NULL)
 		buffer_delete(buffer);
 	conn->ws_state = WS_ST_CLOSING;
+	conn->fl_ws_closing = 1;
 }
-
-void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
-	size_t reason_size);
 
 void
 wsconn_onclosed(wsconn_t *conn)
@@ -539,7 +566,10 @@ wsconn_onclosed(wsconn_t *conn)
 	unsigned char *reason = (unsigned char *) "XMPP server closed";
 
 	conn->cm_state = CM_ST_CLOSED;
+	conn->fl_cm_closed = 1;
 	if (conn->ws_state == WS_ST_RECEIVING)
 		wsconn_initiate_close( conn, 1001, reason, strlen((char *) reason) );
+	else if (conn->ws_state == WS_ST_CLOSED)
+		wsconn_delete(conn);
 }
 
