@@ -27,8 +27,8 @@ static void wsconn_delete(wsconn_t *conn);
 enum _ws_state_t
 {
 	WS_ST_START,
-	WS_ST_RECEIVING,  /* receiving frames */
-	WS_ST_CLOSING,    /* closing connection */
+	WS_ST_RECEIVING,    /* receiving frames */
+	WS_ST_CLOSING,      /* closing connection, waiting for response */
 	WS_ST_CLOSED
 };
 
@@ -141,7 +141,7 @@ static wsconn_t *wsconn_create(
 	conn->ws_state = WS_ST_START;
 	conn->cm_state = CM_ST_START;
 	conn->fl_ws_closing = 0;
-	conn->fl_cm_closed = 0;
+	conn->fl_cm_closed = 1;
 	conn->req = rq_create();
 	if (conn->req == NULL)
 	{
@@ -256,48 +256,34 @@ Error:
 void
 wsconn_handshake(wsconn_t *conn)
 {
-	static char response[4096];
-	str_t accept_str;
-	char accept_buffer[64];
+	char response_buffer[1024];
+	str_t response_str;
+	int res;
 	struct evbuffer *output;
-	char *reason;
 
-	str_init( &accept_str, accept_buffer, sizeof(accept_buffer) );
+	str_init( &response_str, response_buffer, sizeof(response_buffer) );
 	output = bufferevent_get_output(conn->bev);
 
-	if ( !config_check_origin( conn->wsserver->conf, rq_get_origin(conn->req) ) )
-	{
-		snprintf( response, sizeof(response),
-			"HTTP/1.1 403 Forbidden\r\n"
-			"\r\n" );
-		evbuffer_add(output, response, strlen(response));
-		wsconn_close(conn);
-		return;
-	}
-	if (!rq_protocols_contains(conn->req, "xmpp") )
-	{
-		LOG(LOG_ERR,
-			"wsserver.c:wsconn_read_cb: client does not support xmpp");
-		/* TODO: send rejection */
-		return;
-	}
-	LOG(LOG_DEBUG,
-		"wsserver.c:wsconn_read_cb: got the request");
-	rq_get_access(
-		rq_get_websocket_key(conn->req),
-		&accept_str);
-	snprintf( response, sizeof(response),
-		"HTTP/1.1 101 Switching Protocols\r\n"
-		"Upgrade: websocket\r\n"
-		"Connection: Upgrade\r\n"
-		"Sec-WebSocket-Protocol: xmpp\r\n"
-		"Sec-WebSocket-Accept: %s\r\n"
-		"\r\n",
-		str_get_string(&accept_str) );
-	evbuffer_add(output, response, strlen(response));
+	res = rq_analyze(conn->req, conn->wsserver->conf, &response_str);
 	conn->ws_state = WS_ST_RECEIVING;
 	if (conn->cb != NULL)
 		conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
+	evbuffer_add(
+		output,
+		str_get_string(&response_str),
+		str_get_length(&response_str) );
+
+	if (res)
+	{
+		conn->ws_state = WS_ST_RECEIVING;
+		conn->fl_cm_closed = 0;
+		if (conn->cb != NULL)
+			conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
+	}
+	else
+	{
+		wsconn_close(conn);
+	}
 }
 
 static void
@@ -401,7 +387,7 @@ wsconn_write_cb(struct bufferevent *bev, void *ctx)
 	output = bufferevent_get_output(bev);
 	length = evbuffer_get_length(output);
 
-	if ((conn->ws_state == WS_ST_CLOSING) && (length == 0))
+	if ( (conn->ws_state == WS_ST_CLOSING) && (length == 0) )
 	{
 		wsconn_delete(conn);
 	}
@@ -500,8 +486,6 @@ void wsconn_write(wsconn_t *conn, void *data, size_t size)
 
 void wsconn_close(wsconn_t *conn)
 {
-	if (conn->bev != NULL)
-		bufferevent_free(conn->bev);
 	conn->ws_state = WS_ST_CLOSED;
 
 	if (conn->cm_state == CM_ST_CREATED)
@@ -511,6 +495,18 @@ void wsconn_close(wsconn_t *conn)
 	}
 	else if (conn->fl_cm_closed)
 		wsconn_delete(conn);
+}
+
+void
+wsconn_close_send(wsconn_t *conn)
+{
+	conn->ws_state = WS_ST_CLOSING;
+
+	if (conn->cm_state == CM_ST_CREATED)
+	{
+		conn->cb(conn, WSCB_CLOSE, conn->custom_ctx);
+		conn->cm_state = CM_ST_CLOSING;
+	}
 }
 
 void

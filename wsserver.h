@@ -89,6 +89,13 @@ void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reaso
 	size_t reason_size);
 void wsconn_close(wsconn_t *conn);
 
+/* wsconn_close_delete does not close the connection immediately,
+   but marks it for close. The connection will be closed after all output data
+   has been sent out. We use this for example when we have to send an error
+   response to the browser before closing the connection.
+ */
+void wsconn_close_send(wsconn_t *conn);
+
 /* wsconn_onclose is called from CM when the connection is closed */
 void wsconn_onclosed(wsconn_t *conn);
 

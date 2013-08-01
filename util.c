@@ -50,9 +50,21 @@ str_get_string(str_t *str)
 }
 
 void
-str_set_string(str_t *str, const char *str_in)
+str_set_string(str_t *str, const char *fmt, ...)
 {
-	str_setn_string(str, str_in, str->capacity);
+	va_list ap;
+	
+	va_start(ap, fmt);
+	vsnprintf(str->buffer, str->capacity, fmt, ap);
+	va_end(ap);
+	str->length = strlen(str->buffer);
+}
+
+void
+str_set_vstring(str_t *str, const char *fmt, va_list ap)
+{
+	vsnprintf(str->buffer, str->capacity, fmt, ap);
+	str->length = strlen(str->buffer);
 }
 
 void

@@ -423,11 +423,49 @@ rq_protocols_contains(request_t *h, const char *protocol)
 int
 rq_analyze(request_t *h, jsconf_t *conf, str_t *response)
 {
+	str_t accept_str;
+	char accept_buffer[64];
+
+	str_init( &accept_str, accept_buffer, sizeof(accept_buffer) );
+
 	if ( !str_is_equal_nocase(&h->method_str, "GET") )
 	{
-		str_set_string(response, "405 Method Not Allowed\r\n\r\n");
+		str_set_string(
+			response,
+			"HTTP/1.1 405 Method Not Allowed\r\n"
+			"\r\n");
 		return 0;
 	}
-	return 0;
+	if ( !config_check_origin( conf, rq_get_origin(h) ) )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 403 Forbidden\r\n"
+			"\r\n");
+		return 0;
+	}
+	if ( !rq_protocols_contains(h, "xmpp") )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 400 Bad Request\r\n"
+			"\r\n");
+		return 0;
+	}
+
+	/* Everything OK, set response to success */
+	rq_get_access(
+		rq_get_websocket_key(h),
+		&accept_str);
+	str_set_string( response,
+		"HTTP/1.1 101 Switching Protocols\r\n"
+		"Upgrade: websocket\r\n"
+		"Connection: Upgrade\r\n"
+		"Sec-WebSocket-Accept: %s\r\n"
+		"Sec-WebSocket-Protocol: xmpp\r\n"
+		"\r\n",
+		str_get_string(&accept_str) );
+
+	return 1;
 }
 

@@ -6,7 +6,6 @@
 
 struct _strlist_t
 {
-	// char *el;
 	char el_buffer[16]; /* Enough capacity for a sub-protocol name */
 	str_t el_str;
 	struct _strlist_t *next;
@@ -44,7 +43,6 @@ typedef struct _request_t
 	char ws_key_buffer[64];
 	str_t ws_key_str;
 
-	// char *websocket_protocol;
 	char ws_protocol_buffer[64];
 	str_t ws_protocol_str;
 

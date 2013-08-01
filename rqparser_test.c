@@ -11,27 +11,6 @@ void TestCreateParser(CuTest *tc)
 	rq_delete(h);
 }
 
-/* TODO: test the parsing of the request line in the test that checks
-   the response to the whole HTTP request */
-#if 0
-void TestParseRequestLine(CuTest *tc)
-{
-	char *line = "GET /something HTTP/1.1";
-	int res;
-	char *resource = "";
-	
-	res = parse_request_line(line, &resource);
-	CuAssert(tc, "Parsing request line failed", res);
-	CuAssertStrEquals(tc, "/something", resource);
-	
-	res = parse_request_line("POST /abc HTTP/1.1", &resource);
-	CuAssert(tc, "Parsing request line with wrong method must fail", !res);
-
-	res = parse_request_line("GET /abc unknown-protocol", &resource);
-	CuAssert(tc, "Parsing request line with wrong protocol must fail", !res);
-}
-#endif 
-
 void TestParseSimpleRequest(CuTest *tc)
 {
 	request_t *h = rq_create();
@@ -156,7 +135,6 @@ void TestWebSocketResponse(CuTest *tc)
 	rq_get_access(challenge, &response_str);
 	CuAssertStrEquals_Msg( tc, "challenge/response mismatch",
 		"HSmrc0sMlYUkAGmm5OPpG2HaGWk=", str_get_string(&response_str) );
-	// free(response);
 }
 
 void TestHeaderErrors(CuTest *tc)
@@ -179,16 +157,26 @@ void TestHeaderErrors(CuTest *tc)
 	rq_add_line(req, "Upgrade: websocket");
 	rq_add_line(req, "Connection: Upgrade");
 	rq_add_line(req, "sec-websocket-key: x3JJHMbDL1EzLkh9GBhXDw==");
-	rq_add_line(req, "Sec-WebSocket-Protocol: chat");
+	rq_add_line(req, "Sec-WebSocket-Protocol: xmpp");
 	rq_add_line(req, "Sec-WebSocket-Version: 13");
-	rq_add_line(req, "Origin: http://example.com");
+	rq_add_line(req, "Origin: http://firstdomain.com");
 	CuAssertTrue(tc, !rq_done(req));
 	rq_add_line(req, "");
 	
 	CuAssertTrue(tc, rq_done(req));
 	CuAssertTrue(tc, !rq_is_error(req));
+	CuAssertTrue( tc, rq_analyze(req, conf, &response_str) );
+	CuAssertStrEquals(
+		tc,
+		"HTTP/1.1 101 Switching Protocols\r\n"
+		"Upgrade: websocket\r\n"
+		"Connection: Upgrade\r\n"
+		"Sec-WebSocket-Accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=\r\n"
+		"Sec-WebSocket-Protocol: xmpp\r\n"
+		"\r\n",
+		str_get_string(&response_str) );
 
-	/* Wrong HTTP version */
+	/* Wrong HTTP method */
 	rq_clear(req);
 	rq_add_line(req, "POST /mychat HTTP/1.1");
 	rq_add_line(req, "");
@@ -196,10 +184,74 @@ void TestHeaderErrors(CuTest *tc)
 	CuAssertTrue(tc, rq_done(req));
 	CuAssertTrue( tc, !rq_is_error(req) );
 	CuAssertTrue( tc, !rq_analyze(req, conf, &response_str) );
-	CuAssertStrEquals(                         \
-		tc,                                    \
-		"405 Method Not Allowed\r\n\r\n"  \
-		,                                      \
+	CuAssertStrEquals(                         
+		tc,
+		"HTTP/1.1 405 Method Not Allowed\r\n"
+		"\r\n",
+		str_get_string(&response_str) );
+
+	/* TODO: check for wrong protocol, e.g. HTTP/1.0 */
+
+	/* Incorrect origin */
+	rq_clear(req);
+	rq_add_line(req, "GET /mychat HTTP/1.1");
+	rq_add_line(req, "Host: server.example.com");
+	rq_add_line(req, "Upgrade: websocket");
+	rq_add_line(req, "Connection: Upgrade");
+	rq_add_line(req, "sec-websocket-key: x3JJHMbDL1EzLkh9GBhXDw==");
+	rq_add_line(req, "Sec-WebSocket-Protocol: xmpp, smtp");
+	rq_add_line(req, "Sec-WebSocket-Version: 13");
+	rq_add_line(req, "Origin: http://example.com");
+	rq_add_line(req, "");
+
+	CuAssertTrue(tc, rq_done(req));
+	CuAssertTrue( tc, !rq_is_error(req) );
+	CuAssertTrue( tc, !rq_analyze(req, conf, &response_str) );
+	CuAssertStrEquals(                         
+		tc,
+		"HTTP/1.1 403 Forbidden\r\n"
+		"\r\n",
+		str_get_string(&response_str) );
+
+	/* Client smtp instead of xmpp */
+	rq_clear(req);
+	rq_add_line(req, "GET /mychat HTTP/1.1");
+	rq_add_line(req, "Host: server.example.com");
+	rq_add_line(req, "Upgrade: websocket");
+	rq_add_line(req, "Connection: Upgrade");
+	rq_add_line(req, "sec-websocket-key: x3JJHMbDL1EzLkh9GBhXDw==");
+	rq_add_line(req, "Sec-WebSocket-Protocol: smtp");
+	rq_add_line(req, "Sec-WebSocket-Version: 13");
+	rq_add_line(req, "Origin: http://firstdomain.com");
+	rq_add_line(req, "");
+
+	CuAssertTrue(tc, rq_done(req));
+	CuAssertTrue( tc, !rq_is_error(req) );
+	CuAssertTrue( tc, !rq_analyze(req, conf, &response_str) );
+	CuAssertStrEquals(
+		tc,
+		"HTTP/1.1 400 Bad Request\r\n"
+		"\r\n",
+		str_get_string(&response_str) );
+
+	/* Client does not support xmpp */
+	rq_clear(req);
+	rq_add_line(req, "GET /mychat HTTP/1.1");
+	rq_add_line(req, "Host: server.example.com");
+	rq_add_line(req, "Upgrade: websocket");
+	rq_add_line(req, "Connection: Upgrade");
+	rq_add_line(req, "sec-websocket-key: x3JJHMbDL1EzLkh9GBhXDw==");
+	rq_add_line(req, "Sec-WebSocket-Version: 13");
+	rq_add_line(req, "Origin: http://firstdomain.com");
+	rq_add_line(req, "");
+
+	CuAssertTrue(tc, rq_done(req));
+	CuAssertTrue( tc, !rq_is_error(req) );
+	CuAssertTrue( tc, !rq_analyze(req, conf, &response_str) );
+	CuAssertStrEquals(
+		tc,
+		"HTTP/1.1 400 Bad Request\r\n"
+		"\r\n",
 		str_get_string(&response_str) );
 
 	rq_delete(req);

@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 typedef uint8_t byte;
 
@@ -23,7 +24,8 @@ void str_clear(str_t *str);
 size_t str_get_length(str_t *str);
 size_t str_get_capacity(str_t *str);
 char *str_get_string(str_t *str);
-void str_set_string(str_t *str, const char *str_in);
+void str_set_string(str_t *str, const char *fmt, ...);
+void str_set_vstring(str_t *str, const char *fmt, va_list ap);
 void str_setn_string(str_t *str, const char *str_in, size_t maxsize);
 
 void str_copy_string(str_t *dst, str_t *src);

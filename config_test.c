@@ -22,12 +22,12 @@ void TestConfig(CuTest *tc)
 	/* Check the origin list. */
 	current = conf->origin_list;
 	CuAssertPtrNotNull(tc, current);
-	CuAssertStrEquals(tc, "seconddomain.com", current->url);
+	CuAssertStrEquals(tc, "http://seconddomain.com", current->url);
 	
 	/* Check the second element in the list. */
 	current = current->next;
 	CuAssertPtrNotNull(tc, current);
-	CuAssertStrEquals(tc, "firstdomain.com", current->url);
+	CuAssertStrEquals(tc, "http://firstdomain.com", current->url);
 	
 	/* Check that we have reached the end of the list. */
 	current = current->next;
