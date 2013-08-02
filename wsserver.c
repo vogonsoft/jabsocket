@@ -265,9 +265,6 @@ wsconn_handshake(wsconn_t *conn)
 	output = bufferevent_get_output(conn->bev);
 
 	res = rq_analyze(conn->req, conn->wsserver->conf, &response_str);
-	conn->ws_state = WS_ST_RECEIVING;
-	if (conn->cb != NULL)
-		conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
 	evbuffer_add(
 		output,
 		str_get_string(&response_str),
@@ -275,6 +272,8 @@ wsconn_handshake(wsconn_t *conn)
 
 	if (res)
 	{
+		if (conn->cb != NULL)
+			conn->cb(conn, WSCB_CONNECTED, conn->custom_ctx);
 		conn->ws_state = WS_ST_RECEIVING;
 		conn->fl_cm_closed = 0;
 		if (conn->cb != NULL)

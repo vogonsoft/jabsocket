@@ -54,6 +54,10 @@ typedef struct _request_t
 
 	char origin_buffer[256];
 	str_t origin_str;
+	
+	/* Flags */
+	int fl_upgrade_found; /* Upgrade: WebSocket */
+	int fl_connection_found; /* Connection: Upgrade */
 } request_t;
 
 request_t *rq_create();

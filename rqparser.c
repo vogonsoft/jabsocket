@@ -20,6 +20,12 @@ enum State
 static void _process(request_t *h, char *key, char *value);
 static void _get_protocols(request_t *h);
 
+/* _find_connection_upgrade returns 1 if h->connection_str is a list
+   containing string "Upgrade" (case-insensitive), for example
+   "keep-alive, Upgrade"
+ */
+static int _find_connection_upgrade(request_t *h);
+
 request_t *
 rq_create()
 {
@@ -84,6 +90,8 @@ rq_create()
 		h->protocols_head = NULL;
 		h->protocol_count = 0;
 		h->error_code = 0;
+		h->fl_upgrade_found = 0;
+		h->fl_connection_found = 0;
 	}
 	return h;
 }
@@ -127,6 +135,8 @@ rq_clear(request_t *h)
 	h->protocols_head = NULL;
 	h->protocol_count = 0;
 	h->error_code = 0;
+	h->fl_upgrade_found = 0;
+	h->fl_connection_found = 0;
 }
 
 void
@@ -210,10 +220,14 @@ _process(request_t *h, char *key, char *value)
 	else if (strcasecmp(key, "upgrade") == 0)
 	{
 		str_trim_beginning(&h->upgrade_str, value);
+		if ( str_is_equal_nocase(&h->upgrade_str, "websocket") )
+			h->fl_upgrade_found = 1;
 	}
 	else if (strcasecmp(key, "connection") == 0)
 	{
 		str_trim_beginning(&h->connection_str, value);
+		if ( _find_connection_upgrade(h) )
+			h->fl_connection_found = 1;
 	}
 	else if (strcasecmp(key, "Sec-WebSocket-Key") == 0)
 	{
@@ -394,6 +408,35 @@ _get_protocols(request_t *h)
 	}
 }
 
+static int
+_find_connection_upgrade(request_t *h)
+{
+	char *str, *saveptr, *token;
+	char tmp_connection_buffer[64];
+	str_t tmp_connection_str;
+	char token_nows_buffer[16];
+	str_t token_nows_str;
+	struct _strlist_t *new_connpar;
+	
+	str_init( &tmp_connection_str, tmp_connection_buffer, sizeof(tmp_connection_buffer) );
+	str_init( &token_nows_str, token_nows_buffer, sizeof(token_nows_buffer) );
+	
+	/* We copy connection_str to tmp_connection_str, because strtok will spoil
+	   the internal buffer */
+	str_copy_string(&tmp_connection_str, &h->connection_str);
+	str = str_get_string(&tmp_connection_str);
+	while (1)
+	{
+		token = strtok_r(str, ",", &saveptr);
+		str = NULL;
+		if (token == NULL)
+			break;
+		str_trim_whitespace(&token_nows_str, token);
+		if ( str_is_equal_nocase(&token_nows_str, "Upgrade") )
+			return 1;
+	}
+}
+
 char *
 rq_get_protocol(request_t *h, int index)
 {
@@ -472,13 +515,54 @@ rq_analyze(request_t *h, jsconf_t *conf, str_t *response)
 			"\r\n");
 		return 0;
 	}
+	
+	/* Check for Upgrade: WebSocket */
+	if ( !h->fl_upgrade_found )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 400 Bad Request\r\n"
+			"\r\n");
+		return 0;
+	}
 
-	/* TODO: what to do with resource? */
+	/* Check for Connection: Upgrade */
+	if ( !h->fl_connection_found )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 400 Bad Request\r\n"
+			"\r\n");
+		return 0;
+	}
+
+	/* Check for resource */
+	if ( (conf->resource != NULL) &&
+		 ( !str_is_equal_nocase(&h->resource_str, conf->resource) ) )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 404 Not Found\r\n"
+			"\r\n");
+		return 0;
+	}
+
+	/* Check for version 13 */
+	if ( strcmp( rq_get_websocket_version(h), "13" ) != 0 )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 426 Upgrade Required\r\n"
+			"Sec-WebSocket-Version: 13\r\n"
+			"\r\n");
+		return 0;
+	}
 
 	/* Everything OK, set response to success */
 	rq_get_access(
 		rq_get_websocket_key(h),
 		&accept_str);
+#if 0
 	str_set_string( response,
 		"HTTP/1.1 101 Switching Protocols\r\n"
 		"Upgrade: websocket\r\n"
@@ -487,7 +571,16 @@ rq_analyze(request_t *h, jsconf_t *conf, str_t *response)
 		"Sec-WebSocket-Protocol: xmpp\r\n"
 		"\r\n",
 		str_get_string(&accept_str) );
-
+#endif
+	str_set_string( response,
+		"HTTP/1.1 101 Switching Protocols\r\n"
+		"Upgrade: websocket\r\n"
+		"Connection: %s\r\n"
+		"Sec-WebSocket-Accept: %s\r\n"
+		"Sec-WebSocket-Protocol: xmpp\r\n"
+		"\r\n",
+		str_get_string(&h->connection_str),
+		str_get_string(&accept_str) );
 	return 1;
 }
 

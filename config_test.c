@@ -19,6 +19,7 @@ void TestConfig(CuTest *tc)
 	CuAssertStrEquals(tc, "5000", conf->port);
 	CuAssertStrEquals(tc, "0.0.0.0", conf->cidr);
 	CuAssertStrEquals(tc, "server.example.com", conf->host);
+	CuAssertStrEquals(tc, "/mychat", conf->resource);
 	
 	/* Check the origin list. */
 	current = conf->origin_list;

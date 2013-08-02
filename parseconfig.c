@@ -32,6 +32,8 @@ config_delete(jsconf_t *conf)
 	}
 	free(conf->cidr);
 	free(conf->port);
+	free(conf->host);
+	free(conf->resource);
 	free(conf);
 }
 
@@ -142,6 +144,17 @@ config_parse(jsconf_t *conf, const char *file)
 							break;
 						}
 						conf->host = new_host;
+					}
+					else if (strcmp(key, "resource") == 0)
+					{
+						char *new_resource = strdup((char*) token.data.scalar.value);
+						if (new_resource == NULL)
+						{
+							LOG(LOG_WARNING,
+								"parseconfig.c:config_parse: out of memory");
+							break;
+						}
+						conf->resource = new_resource;
 					}
 					else if (strcmp(key, "log_level") == 0)
 					{
