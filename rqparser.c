@@ -453,6 +453,28 @@ rq_analyze(request_t *h, jsconf_t *conf, str_t *response)
 		return 0;
 	}
 
+	/* Check if Sec-WebSocket-Key exists */
+	if ( strcmp(rq_get_websocket_key(h), "") == 0 )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 400 Bad Request\r\n"
+			"\r\n");
+		return 0;
+	}
+
+	/* Check Host */
+	if ( (conf->host != NULL) && ( strcmp(conf->host, rq_get_host(h) ) != 0 ) )
+	{
+		str_set_string(
+			response,
+			"HTTP/1.1 400 Bad Request\r\n"
+			"\r\n");
+		return 0;
+	}
+
+	/* TODO: what to do with resource? */
+
 	/* Everything OK, set response to success */
 	rq_get_access(
 		rq_get_websocket_key(h),

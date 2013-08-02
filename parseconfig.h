@@ -19,6 +19,7 @@ typedef struct _jsconf_t
 	char *port;
 	origin_t *origin_list;
 	char *cidr;
+	char *host;
 	int log_level;
 } jsconf_t;
 

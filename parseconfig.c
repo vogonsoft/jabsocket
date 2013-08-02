@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <regex.h>
 #include <fnmatch.h>
+#include "log.h"
 
 jsconf_t *
 config_create()
@@ -112,14 +113,35 @@ config_parse(jsconf_t *conf, const char *file)
 					if (strcmp(key, "port") == 0)
 					{
 						char *new_port = strdup((char*) token.data.scalar.value);
-						/* TODO: check if new_port == NULL */
+						if (new_port == NULL)
+						{
+							LOG(LOG_WARNING,
+								"parseconfig.c:config_parse: out of memory");
+							break;
+						}
 						conf->port = new_port;
 					}
 					else if (strcmp(key, "listen") == 0)
 					{
 						char *new_cidr = strdup((char*) token.data.scalar.value);
-						/* TODO: check if new_cidr == NULL */
+						if (new_cidr == NULL)
+						{
+							LOG(LOG_WARNING,
+								"parseconfig.c:config_parse: out of memory");
+							break;
+						}
 						conf->cidr = new_cidr;
+					}
+					else if (strcmp(key, "host") == 0)
+					{
+						char *new_host = strdup((char*) token.data.scalar.value);
+						if (new_host == NULL)
+						{
+							LOG(LOG_WARNING,
+								"parseconfig.c:config_parse: out of memory");
+							break;
+						}
+						conf->host = new_host;
 					}
 					else if (strcmp(key, "log_level") == 0)
 					{

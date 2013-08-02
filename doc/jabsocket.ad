@@ -188,6 +188,9 @@ port: 5000
 # CIDR to listen on (0.0.0.0 for all)
 listen: 0.0.0.0
 
+# We require Host value in the request to match this parameter
+host: example.com:5000
+
 # Acceptable origin
 origin:
   - http://firstdomain.com
@@ -202,6 +205,9 @@ jabsocket currently recognizes the following configuration parameters:
 - port - the port on which it listens for WebSocket connections
 - listen - the CIDR on which to listen, for example 0.0.0.0 would mean
   listen on all available interfaces, 127.0.0.1 would mean localhost
+- host - the required value of the Host key in the opening handshake; if
+  this parameter does not exist in the configuration file, then we don't
+  check
 - origin - the list of web origins from which the service will accept the
   connection
 - log_level - minimum log level - one of the standard syslog levels: LOG_EMERG

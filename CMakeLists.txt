@@ -56,7 +56,7 @@ add_executable(jabsocket_test
 	base64_test.c config_test.c framer_test.c
 	streamparse_test.c util_test.c websockframe_test.c rqparser_test.c CuTest.c
 	base64.c parseconfig.c framer.c streamparse.c util.c websockframe.c
-	rqparser.c)
+	rqparser.c log.c)
 
 target_link_libraries(jabsocket_test ${LIBS})
 
