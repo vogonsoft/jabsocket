@@ -2,7 +2,8 @@
 #include <string.h>
 #include <arpa/inet.h> /* for uint16_t, ntohs, etc */
 
-int unmask(unsigned char *input, size_t input_len, unsigned char *output,
+int
+unmask(unsigned char *input, size_t input_len, unsigned char *output,
 	size_t *output_len)
 {
 	size_t index;
@@ -30,7 +31,8 @@ int unmask(unsigned char *input, size_t input_len, unsigned char *output,
 
 #define INIT_BUFFER_SIZE 128
 
-buffer_t *buffer_create()
+buffer_t *
+buffer_create()
 {
 	buffer_t *buffer;
 	
@@ -52,13 +54,15 @@ Error:
 	return NULL;
 }
 
-void buffer_delete(buffer_t *buffer)
+void
+buffer_delete(buffer_t *buffer)
 {
 	free(buffer->data);
 	free(buffer);
 }
 
-int buffer_append(buffer_t *buffer, unsigned char *data, size_t length)
+int
+buffer_append(buffer_t *buffer, unsigned char *data, size_t length)
 {
 	unsigned char *new_buff;
 	size_t new_cap;
@@ -81,36 +85,42 @@ Error:
 	return 0;
 }
 
-size_t buffer_get_length(buffer_t *buffer)
+size_t
+buffer_get_length(buffer_t *buffer)
 {
 	return buffer->length;
 }
 
-void buffer_get_data(buffer_t *buffer, unsigned char *output, size_t length)
+void
+buffer_get_data(buffer_t *buffer, unsigned char *output, size_t length)
 {
 	/* We assume that the caller has checked that this buffer has enough
 	   data available and allocated the memory to receive the data. */
 	memcpy(output, buffer->data, length);
 }
 
-void buffer_get_data2(buffer_t *buffer, data_t *data, size_t length)
+void
+buffer_get_data2(buffer_t *buffer, data_t *data, size_t length)
 {
 	data_set_data(data, buffer->data, length);
 }
 
-void buffer_peek_data(buffer_t *buffer, unsigned char **data, size_t *length)
+void
+buffer_peek_data(buffer_t *buffer, unsigned char **data, size_t *length)
 {
 	*data = buffer->data;
 	*length = buffer->length;
 }
 
-void buffer_remove_data(buffer_t *buffer, size_t length)
+void
+buffer_remove_data(buffer_t *buffer, size_t length)
 {
 	memmove(buffer->data, buffer->data + length, buffer->capacity - length);
 	buffer->length -= length;
 }
 
-wsfbuffer_t *wsfb_create()
+wsfbuffer_t *
+wsfb_create()
 {
 	wsfbuffer_t *buffer = (wsfbuffer_t*) malloc(sizeof(*buffer));
 	if (buffer == NULL)
@@ -125,13 +135,15 @@ Error:
 	return NULL;
 }
 
-void wsfb_delete(wsfbuffer_t *buffer)
+void
+wsfb_delete(wsfbuffer_t *buffer)
 {
 	buffer_delete(buffer->buffer);
 	free(buffer);
 }
 
-int wsfb_append(wsfbuffer_t *buffer, unsigned char *data, size_t len)
+int
+wsfb_append(wsfbuffer_t *buffer, unsigned char *data, size_t len)
 {
 	int res;
 	
@@ -139,12 +151,14 @@ int wsfb_append(wsfbuffer_t *buffer, unsigned char *data, size_t len)
 	return res;
 }
 
-int wsfb_have_message(wsfbuffer_t *buffer)
+int
+wsfb_have_message(wsfbuffer_t *buffer)
 {
 	return (wsfb_get_length(buffer) != -1);
 }
 
-long wsfb_get_length(wsfbuffer_t *buffer)
+long
+wsfb_get_length(wsfbuffer_t *buffer)
 {
 	int res;
 	int opcode;
@@ -156,7 +170,8 @@ long wsfb_get_length(wsfbuffer_t *buffer)
 	return length;
 }
 
-int wsfb_get_message(wsfbuffer_t *buffer, int *opcode, unsigned char **data,
+int
+wsfb_get_message(wsfbuffer_t *buffer, int *opcode, unsigned char **data,
 	size_t *output_length)
 {
 	size_t length = buffer_get_length(buffer->buffer);
