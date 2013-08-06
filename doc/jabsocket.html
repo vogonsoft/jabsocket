@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>jabsocket, XMPP over WebSocket connection manager</title><link rel="stylesheet" href="docbook-xsl.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div xml:lang="en" class="article" title="jabsocket, XMPP over WebSocket connection manager" lang="en"><div class="titlepage"><div><div><h2 class="title"><a id="id351210"></a>jabsocket, XMPP over WebSocket connection manager</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Aleksandar</span> <span class="surname">Janicijevic</span></h3><code class="email">&lt;<a class="email" href="mailto:aleks@vogonsoft.com">aleks@vogonsoft.com</a>&gt;</code></div></div><div><div class="revhistory"><table border="1" width="100%" summary="Revision history"><tr><th align="left" valign="top" colspan="3"><b>Revision History</b></th></tr><tr><td align="left">Revision 0.1.0</td><td align="left">2013-07-24</td><td align="left">AJ</td></tr></table></div></div></div><hr /></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="section"><a href="#_introduction">1. Introduction</a></span></dt><dt><span class="section"><a href="#_building_and_installing">2. Building and Installing</a></span></dt><dt><span class="section"><a href="#_configuration">3. Configuration</a></span></dt><dt><span class="section"><a href="#_running">4. Running</a></span></dt></dl></div><p>jabsocket is a server program for connecting with XMPP servers via
+WebSocket protocol.</p><div class="abstract" title="Abstract"><a id="_abstract"></a><p class="title"><b>Abstract</b></p><p>This document describes the purpose, architecture and usage of jabsocket,
+XMPP-over-WebSocket connection manager.</p></div><div class="section" title="1. Introduction"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="_introduction"></a>1. Introduction</h2></div></div></div><p>XMPP is Extensible Messaging and Presence Protocol, originally known as Jabber.
+Jabber was designed for instant messaging, exchanging presence information, and
+managing contact lists. It was developed as an open and extensible protocol.
+These features together with the fact that the XMPP architecture is
+decentralized, led to the standard being expanded for use in many applications
+beyond the instant messaging.</p><p>In XMPP, the main components are clients and servers. Clients communicate with
+servers using client-to-server protocol and servers communicate with other
+servers using server-to-server protocol. Both of these protocols are based on
+XML format and use TCP protocol as the transport protocol.</p><p>An XMPP client can be implemented in many ways, but in this project we are
+concerned with only one particular type of implementation: as a web browser-based
+application written in JavaScript. This approach has upsides and downsides.
+The upsides are the hardware and Operating System independence due to the
+ubiquity of web browsers and the fact that it does not require the user to
+install any software other than a web browser.</p><p>However, the browser-based approach has a problem that HTTP, the protocol for
+communication between the browser and the web server, was designed for
+synchronous communication: the browser sends a request and the server sends
+back a response. XMPP is by its nature an asynchronous protocol, where both
+the client and the server can send data at any time.</p><p>Before WebSocket protocol came, the only way this problem could be solved was
+by using a protocol called Bidirectional streams Over Synchronous HTTP (BOSH),
+which is similar to the techniques known as Comet. This approach has a number
+of issues, all stemming from the fact that HTTP was not designed for
+asynchronous, bidirectional communication. The main problem is a large
+overhead in HTTP request and response. See RFC 6202 for a discussion of all
+issues with BOSH.</p><p>WebSocket was designed to solve the problems that HTTP has with network
+communication. After going through a number of incompatible revisions and
+fixes for discovered security problems, WebSocket was standardised in
+<a class="ulink" href="http://tools.ietf.org/html/rfc6455" target="_top">RFC 6455</a> in 2011. Please refer the RFC and
+<a class="ulink" href="http://en.wikipedia.org/wiki/WebsocketWiki" target="_top">Wikipedia page on WebSocket</a> for
+more details. Here we will only mention that the standard has two parts:
+the protocol (defining the handshake and message format) and the API for use
+from JavaScript.</p><p>In the parlance of RFC 6455, XMPP over WebSocket is a sub-protocol. As of
+July 2013, it is not yet standardised, but there is a draft, currently in its
+fourth iteration:
+<a class="ulink" href="https://tools.ietf.org/html/draft-moffitt-xmpp-over-websocket-03" target="_top">An XMPP
+Sub-protocol for WebSocket</a>.</p><p>There are two ways to implement XMPP over WebSocket:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+The XMPP server can support WebSocket directly
+</li><li class="listitem">
+There can be a connection manager that server as an intermediary between
+  a browser and an XMPP server.
+</li></ul></div><p>jabsocket implements the second way, a connection manager. It aims to follow
+the XMPP-over-WebSocket draft.</p><p>jabsocket is not the only implementation of a connection manager (or
+"gateway"). I am aware of these:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+<a class="ulink" href="https://github.com/dhruvbird/node-xmpp-bosh" target="_top">node-xmpp-bosh</a>, An XMPP BOSH &amp;
+  WebSocket server (connection manager) written on node.js using Javascript
+</li><li class="listitem">
+<a class="ulink" href="https://github.com/hocken/wxg" target="_top">WXG</a>, a gateway for XMPP over WebSocket
+  implemented in Java
+</li><li class="listitem">
+<a class="ulink" href="http://www.ohloh.net/p/mod_xmpp" target="_top">mod_xmpp</a>, Apache module which proxies XMPP
+  client connections over WebSockets
+</li></ul></div><div class="warning" title="Warning" style="margin-left: 0; margin-right: 10%;"><table border="0" summary="Warning"><tr><td rowspan="2" align="center" valign="top" width="25"><img alt="[Warning]" src="/etc/asciidoc/images/icons//warning.png" /></td><th align="left"></th></tr><tr><td align="left" valign="top"><p>At the moment (July 24 2013), jabsocket is still in the alpha stage,
+which means not yet production-ready. See TODO for the things I am planning to
+work on.</p></td></tr></table></div></div><div class="section" title="2. Building and Installing"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="_building_and_installing"></a>2. Building and Installing</h2></div></div></div><p>jabsocket is implemented in C. Before building it, you have to have the
+following libraries installed:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+libevent 2.0.21 or later
+</li><li class="listitem">
+Expat 2.1.0 or later
+</li><li class="listitem">
+libyaml 0.1.3-1 or later
+</li><li class="listitem">
+libssl 0.9.8 or later
+</li></ul></div><div class="note" title="Note" style="margin-left: 0; margin-right: 10%;"><table border="0" summary="Note"><tr><td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="/etc/asciidoc/images/icons//note.png" /></td><th align="left"></th></tr><tr><td align="left" valign="top"><p>The code may work with earlier versions of these libraries; the version
+numbers listed are simply what I have tested with on Ubuntu 10.04.3 LTS.</p></td></tr></table></div><p>The build system uses CMake. The steps to build jabsocket are the following.</p><p>Get the latest source by running</p><pre class="literallayout">git clone git@github.com:vogonsoft/jabsocket.git</pre><p>Run cmake to generate the Makefile:</p><p>You first have to use CMake to generate the Makefile. To use the default
+configuration (which is release):</p><pre class="literallayout">cmake .</pre><p>To generate Makefile for debug:</p><pre class="literallayout">cmake -D CMAKE_BUILD_TYPE=DEBUG .</pre><p>To generate Makefile for release</p><pre class="literallayout">cmake -D CMAKE_BUILD_TYPE=RELEASE .</pre><p>Build:</p><pre class="literallayout">make</pre><p>To run make verbosely, run:</p><pre class="literallayout">make VERBOSE=1</pre><p>Run unit tests:</p><pre class="literallayout">make check</pre><p>Install:</p><pre class="literallayout">sudo make install</pre><p>Useful make targets:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+make help - list all available make targets
+</li><li class="listitem">
+make package - build binary package
+</li><li class="listitem">
+make package_source - build source package
+</li></ul></div></div><div class="section" title="3. Configuration"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="_configuration"></a>3. Configuration</h2></div></div></div><p>jabsocket reads configuration from a YAML-formatted file. By default, this
+file is</p><pre class="literallayout">/etc/jabsocket.conf</pre><p>but it can be changed with -c command line parameter, like this:</p><pre class="literallayout">jabsocket -c ./jabsocket.conf</pre><p>Here is an example configuration:</p><pre class="literallayout"># jabsocket configuration
+
+# Listening port for WebSocket connection
+port: 5000
+
+# CIDR to listen on (0.0.0.0 for all)
+listen: 0.0.0.0
+
+# Host - the value of the Host key in the request must match
+# this parameter
+host: example.com:5000
+
+# Resource that is expected in the first line
+# e.g. in the line GET /mychat HTTP/1.1 the resource is /mychat
+resource: /mychat
+
+# Acceptable origin
+origin:
+  - http://firstdomain.com
+  - http://seconddomain.com
+
+# Minimum log level
+log_level: LOG_DEBUG</pre><p>jabsocket currently recognizes the following configuration parameters:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+port - the port on which it listens for WebSocket connections
+</li><li class="listitem">
+listen - the CIDR on which to listen, for example 0.0.0.0 would mean
+  listen on all available interfaces, 127.0.0.1 would mean localhost
+</li><li class="listitem">
+host - the required value of the Host key in the opening handshake; if
+  this parameter does not exist in the configuration file, then we don’t
+  check
+</li><li class="listitem">
+resource - the required value of resource in the request line, e.g. if
+  the request line is GET /mychat HTTP/1.1, the resource is /mychat; if
+  this parameter does not exist in the configuration file, then we don’t
+  check
+</li><li class="listitem">
+origin - the list of web origins from which the service will accept the
+  connection
+</li><li class="listitem">
+log_level - minimum log level - one of the standard syslog levels: LOG_EMERG
+  is the highest and LOG_DEBUG is the lowest
+</li></ul></div><p>Web origins listed under "origin" key are patterns that define which origins
+will be accepted. In the opening handshake of a WebSocket connection, the
+browser will send a header that looks like this:</p><pre class="literallayout">Origin: http://vogonsoft.com</pre><p>In that string, "http" is scheme, "vogonsoft.com" is the host, and port is not
+specified. If you want your server to accept only this origin, put this in the
+configuration:</p><pre class="literallayout">origin:
+  - http://vogonsoft.com</pre><p>If you want to accept vogonsoft.com and all its subdomains, use the pattern:</p><pre class="literallayout">origin:
+  - http://vogonsoft.com
+  - http://*.vogonsoft.com</pre><p>The patterns in the list of origins have the same syntax as file patterns: "*"
+matches any sequence of 0 or more characters, and "?" matches any single
+character.</p><p>Recognized log levels, from highest to lowest:</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+LOG_EMERG
+</li><li class="listitem">
+LOG_ALERT
+</li><li class="listitem">
+LOG_CRIT
+</li><li class="listitem">
+LOG_ERR
+</li><li class="listitem">
+LOG_WARNING
+</li><li class="listitem">
+LOG_NOTICE
+</li><li class="listitem">
+LOG_INFO
+</li><li class="listitem">
+LOG_DEBUG
+</li></ul></div><p>When diagnosing a problem, set the level to LOG_DEBUG.</p><div class="note" title="Note" style="margin-left: 0; margin-right: 10%;"><table border="0" summary="Note"><tr><td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="/etc/asciidoc/images/icons//note.png" /></td><th align="left"></th></tr><tr><td align="left" valign="top"><p>When you change the configuration, you have to restart the service for it
+to read the new configuration parameters.</p></td></tr></table></div></div><div class="section" title="4. Running"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="_running"></a>4. Running</h2></div></div></div><p>jabsocket accepts the following command-line parameters or options:</p><pre class="literallayout">  --config, -c &lt;config file&gt;          - Configuration file
+                                        (default is /etc/jabsocket.conf)
+  --nodaemon, -n                      - Don't run as daemon
+                                        (default is running as daemon)
+  --version, -v                       - Display the version
+  --help, -h                          - Help message</pre></div></div></body></html>

@@ -1,3 +1,6 @@
+Documentation
+=============
+
 Directory doc contains the documentation.
 
 The documentation is in asciidoc format, which means it is perfectly
@@ -6,9 +9,14 @@ tools installed (see http://asciidoc.org/INSTALL.html).
 
 Converting to XHTML:
 
-a2x -f xhtml jabsocket.ad
+	a2x -f xhtml jabsocket.ad
 
 Converting to PDF:
 
-a2x -f pdf jabsocket.ad
+	a2x -f pdf jabsocket.ad
+
+In the doc directory there is a Makefile that can do this. Just type
+	make
+
+and it produces both file jabsocket.html and jabsocket.pdf.
 
