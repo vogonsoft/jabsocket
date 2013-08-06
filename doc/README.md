@@ -1,5 +1,5 @@
 Documentation
-=============
+-------------
 
 Directory doc contains the documentation.
 
@@ -16,6 +16,7 @@ Converting to PDF:
 	a2x -f pdf jabsocket.ad
 
 In the doc directory there is a Makefile that can do this. Just type
+
 	make
 
 and it produces both file jabsocket.html and jabsocket.pdf.
