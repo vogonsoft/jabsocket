@@ -32,18 +32,26 @@ unmask(unsigned char *input, size_t input_len, unsigned char *output,
 #define INIT_BUFFER_SIZE 128
 
 buffer_t *
-buffer_create()
+buffer_create(size_t max_length)
 {
 	buffer_t *buffer;
+	size_t init_capacity;
+	
+	init_capacity = INIT_BUFFER_SIZE;
+	if ( (max_length > 0) && (max_length < init_capacity) )
+	{
+		init_capacity = max_length;
+	}
 	
 	buffer = (buffer_t*) malloc(sizeof(*buffer));
 	if (buffer != NULL)
 	{
-		buffer->data = (unsigned char*) malloc(INIT_BUFFER_SIZE);
+		buffer->data = (unsigned char*) malloc(init_capacity);
 		if (buffer->data == NULL)
 			goto Error;
 		buffer->length = 0;
-		buffer->capacity = INIT_BUFFER_SIZE;
+		buffer->capacity = init_capacity;
+		buffer->max_length = max_length;
 	}
 	return buffer;
 
@@ -67,15 +75,42 @@ buffer_append(buffer_t *buffer, unsigned char *data, size_t length)
 	unsigned char *new_buff;
 	size_t new_cap;
 	
-	if (buffer->length + length > buffer->capacity)
+	if (length == 0)
+		return 1;
+	
+	if (buffer->max_length == 0) /* unlimited buffer size */
 	{
-		/* Buffer not large enough, we have to resize */
-		new_cap = buffer->length + length + 1024;
-		new_buff = realloc(buffer->data, new_cap);
-		if (new_buff == NULL)
+		if (buffer->length + length > buffer->capacity)
+		{
+			/* Buffer not large enough, we have to resize */
+		
+			new_cap = buffer->length + length + 1024;
+			new_buff = realloc(buffer->data, new_cap);
+			if (new_buff == NULL)
+				goto Error;
+			buffer->data = new_buff;
+			buffer->capacity = new_cap;
+		}
+		if (buffer->length + length > buffer->capacity)
+			length = buffer->capacity - buffer->length;
+	}
+	else /* limited buffer size */
+	{
+		if (buffer->length + length > buffer->max_length)
+			length = buffer->max_length - buffer->length;
+		if (length == 0) /* no more room in the buffer */
 			goto Error;
-		buffer->data = new_buff;
-		buffer->capacity = new_cap;
+		if (buffer->length + length > buffer->capacity)
+		{
+			new_cap = buffer->length + length + 1024;
+			if (new_cap > buffer->max_length)
+				new_cap = buffer->max_length;
+			new_buff = realloc(buffer->data, new_cap);
+			if (new_buff == NULL)
+				goto Error;
+			buffer->data = new_buff;
+			buffer->capacity = new_cap;
+		}
 	}
 	memcpy(buffer->data + buffer->length, data, length);
 	buffer->length += length;
@@ -120,12 +155,12 @@ buffer_remove_data(buffer_t *buffer, size_t length)
 }
 
 wsfbuffer_t *
-wsfb_create()
+wsfb_create(jsconf_t *conf)
 {
 	wsfbuffer_t *buffer = (wsfbuffer_t*) malloc(sizeof(*buffer));
 	if (buffer == NULL)
 		goto Error;
-	buffer->buffer = buffer_create();
+	buffer->buffer = buffer_create(conf->max_message_size);
 	if (buffer->buffer == NULL)
 		goto Error;
 	return buffer;

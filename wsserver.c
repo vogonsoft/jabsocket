@@ -148,7 +148,7 @@ static wsconn_t *wsconn_create(
 		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create request parser\n");
 		goto Error;
 	}
-	conn->buffer = wsfb_create();
+	conn->buffer = wsfb_create(conn->wsserver->conf);
 	if (conn->buffer == NULL)
 	{
 		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create websockframe buffer");
@@ -426,7 +426,7 @@ static void wsconn_write_frame(wsconn_t *conn, uint8_t opcode,
 	
 	block0[0] = 0x80 + (0x0F & opcode);
 
-	buffer = buffer_create();
+	buffer = buffer_create(0); /* TODO: limited size buffer */
 	if (buffer == NULL)
 		goto Exit;
 	output = bufferevent_get_output(bev);
@@ -521,7 +521,7 @@ wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reason,
 	if (conn->fl_ws_closing) /* Closing has already been initiated */
 		return;
 
-	buffer = buffer_create();
+	buffer = buffer_create(0); /* TODO: limited size buffer */
 	if (buffer == NULL)
 		goto Exit;
 	if (status > 0)

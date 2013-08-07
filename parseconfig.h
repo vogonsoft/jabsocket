@@ -22,6 +22,8 @@ typedef struct _jsconf_t
 	char *host;
 	char *resource;
 	int log_level;
+	int max_message_size;
+	int max_frame_size;
 } jsconf_t;
 
 jsconf_t *config_create();

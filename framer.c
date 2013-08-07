@@ -34,7 +34,8 @@ framer_create()
 	framer->buffer_index = 0;
 	framer->head = framer->tail = NULL;
 	
-	framer->buffer = buffer_create();
+	/* TODO: create buffers with limited maximum length */
+	framer->buffer = buffer_create(0);
 	if (framer->buffer == NULL)
 		goto Error;
 
@@ -105,7 +106,7 @@ framer_initialize(framer_t *framer)
 	framer->buffer_index = 0;
 	framer->head = framer->tail = NULL;
 	
-	framer->buffer = buffer_create();
+	framer->buffer = buffer_create(0);
 	if (framer->buffer == NULL)
 		goto Error;
 

@@ -33,7 +33,7 @@ cm_create(wsconn_t *conn)
 		cm->server = NULL;
 		cm->bev = NULL;
 		cm->dnsbase = NULL;
-		cm->buffer = buffer_create();
+		cm->buffer = buffer_create(0); /* TODO: limited size buffer */
 		if (cm->buffer == NULL)
 			goto Error;
 		cm->framer = framer_create();

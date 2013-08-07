@@ -20,6 +20,8 @@ void TestConfig(CuTest *tc)
 	CuAssertStrEquals(tc, "0.0.0.0", conf->cidr);
 	CuAssertStrEquals(tc, "server.example.com", conf->host);
 	CuAssertStrEquals(tc, "/mychat", conf->resource);
+	CuAssertIntEquals(tc, 128, conf->max_message_size);
+	CuAssertIntEquals(tc, 64, conf->max_frame_size);
 	
 	/* Check the origin list. */
 	current = conf->origin_list;

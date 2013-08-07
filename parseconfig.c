@@ -176,6 +176,14 @@ config_parse(jsconf_t *conf, const char *file)
 						else if (strcmp(value, "LOG_DEBUG") == 0)
 							conf->log_level = LOG_DEBUG;
 					}
+					else if (strcmp(key, "max_message_size") == 0)
+					{
+						conf->max_message_size = atoi((char*) token.data.scalar.value);
+					}
+					else if (strcmp(key, "max_frame_size") == 0)
+					{
+						conf->max_frame_size = atoi((char*) token.data.scalar.value);
+					}
 				}
 				break;
 			/* Others */

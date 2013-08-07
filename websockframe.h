@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include "util.h"
+#include "parseconfig.h"
 
 /* Data buffer */
 typedef struct _buffer_t
@@ -10,9 +11,10 @@ typedef struct _buffer_t
 	unsigned char *data;
 	size_t length;
 	size_t capacity;
+	size_t max_length;
 } buffer_t;
 
-buffer_t *buffer_create();
+buffer_t *buffer_create(size_t max_length);
 void buffer_delete(buffer_t *buffer);
 
 int buffer_append(buffer_t *buffer, unsigned char *data, size_t length);
@@ -31,7 +33,7 @@ typedef struct _wsfbuffer_t
 int unmask(unsigned char *input, size_t input_len, unsigned char *output,
 	size_t *output_len);
 
-wsfbuffer_t *wsfb_create();
+wsfbuffer_t *wsfb_create(jsconf_t *conf);
 void wsfb_delete(wsfbuffer_t *buffer);
 
 int wsfb_append(wsfbuffer_t *buffer, unsigned char *data, size_t len);

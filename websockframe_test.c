@@ -39,7 +39,7 @@ void TestBuffer(CuTest *tc)
 	unsigned char *output2;
 	size_t output_size2;
 	
-	buffer = buffer_create();
+	buffer = buffer_create(0);
 	CuAssertTrue(tc, buffer != NULL);
 	CuAssertIntEquals(tc, 0, buffer_get_length(buffer));
 	
@@ -84,7 +84,7 @@ void TestBuffer2(CuTest *tc)
 	
 	data_init( &data, data_buffer, sizeof(data_buffer) );
 	
-	buffer = buffer_create();
+	buffer = buffer_create(0);
 	CuAssertTrue(tc, buffer != NULL);
 	CuAssertIntEquals(tc, 0, buffer_get_length(buffer));
 	
@@ -122,8 +122,12 @@ void TestGetFrame(CuTest *tc)
 			0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x20, 0x30
 		};
 	long res_length;
+	jsconf_t *conf;
+
+	conf = config_create();
+	res = config_parse(conf, "./test/jabsocket.conf");
 	
-	buffer = wsfb_create();
+	buffer = wsfb_create(conf);
 	CuAssertTrue(tc, buffer != NULL);
 
 	/* First we add the first 5 bytes, so there is not a full message in
@@ -162,6 +166,53 @@ void TestGetFrame(CuTest *tc)
 	wsfb_delete(buffer);
 }
 
+void TestLimitedSizeBuffer(CuTest *tc)
+{
+	buffer_t *buffer;
+	unsigned char input1[] = {0x01, 0x02, 0x03};
+	size_t size1 = sizeof(input1);
+	unsigned char input2[] = {0x04, 0x05, 0x06};
+	size_t size2 = sizeof(input2);
+	unsigned char *output;
+	unsigned char input3[] = {0x07, 0x08, 0x09};
+	size_t size3 = sizeof(input3);
+	int res;
+	
+	buffer = buffer_create(4);
+
+	CuAssertTrue(tc, buffer != NULL);
+	CuAssertIntEquals(tc, 0, buffer_get_length(buffer));
+	
+	/* Append input1 to buffer */
+	res = buffer_append(buffer, input1, size1);
+	CuAssertTrue(tc, res);
+	CuAssertIntEquals(tc, 3, buffer_get_length(buffer));
+	
+	/* Read back the data from buffer and compare with input1 */
+	output = (unsigned char*) malloc(3);
+	buffer_get_data(buffer, output, 3);
+	CuAssertIntEquals(tc, 0, memcmp(output, input1, 3));
+	free(output);
+
+	/* Append input2 to buffer */
+	res = buffer_append(buffer, input2, size2);
+	CuAssertTrue(tc, res);
+	CuAssertIntEquals(tc, 4, buffer_get_length(buffer));
+
+	/* Read back the data from buffer and compare with input2 */
+	output = (unsigned char*) malloc(4);
+	buffer_get_data(buffer, output, 4);
+	CuAssertIntEquals(tc, 0, memcmp(output+3, input2, 1));
+	free(output);
+
+	/* Try to append input3 to full buffer */
+	res = buffer_append(buffer, input3, size3);
+	CuAssertTrue(tc, !res);
+	CuAssertIntEquals( tc, 4, buffer_get_length(buffer) );
+
+	buffer_delete(buffer);
+}
+
 CuSuite* WebSocketFrameGetSuite()
 {
 	CuSuite* suite = CuSuiteNew();
@@ -169,6 +220,7 @@ CuSuite* WebSocketFrameGetSuite()
 	SUITE_ADD_TEST(suite, TestBuffer);
 	SUITE_ADD_TEST(suite, TestBuffer2);
 	SUITE_ADD_TEST(suite, TestGetFrame);
+	SUITE_ADD_TEST(suite, TestLimitedSizeBuffer);
 	return suite;
 }
 
