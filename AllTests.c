@@ -9,6 +9,7 @@ CuSuite* WebSocketFrameGetSuite();
 CuSuite* StreamParseGetSuite();
 CuSuite* FramerGetSuite();
 CuSuite* UtilGetSuite();
+CuSuite* WSMessageGetSuite();
 
 void RunAllTests(void) {
 	CuString *output = CuStringNew();
@@ -21,6 +22,7 @@ void RunAllTests(void) {
 	CuSuiteAddSuite(suite, StreamParseGetSuite());
 	CuSuiteAddSuite(suite, FramerGetSuite());
 	CuSuiteAddSuite(suite, UtilGetSuite());
+	CuSuiteAddSuite(suite, WSMessageGetSuite());
 
 	CuSuiteRun(suite);
 	CuSuiteSummary(suite, output);

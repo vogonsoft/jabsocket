@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 add_executable(jabsocket base64.c cmanager.c framer.c log.c main.c parseconfig.c
-	rqparser.c streamparse.c util.c websockframe.c wsserver.c)
+	rqparser.c streamparse.c util.c websockframe.c wsserver.c wsmessage.c)
 
 set (jabsocket_VERSION_MAJOR 0)
 set (jabsocket_VERSION_MINOR 1)
@@ -56,6 +56,7 @@ add_executable(jabsocket_test
 	base64_test.c config_test.c framer_test.c
 	streamparse_test.c util_test.c websockframe_test.c rqparser_test.c CuTest.c
 	base64.c parseconfig.c framer.c streamparse.c util.c websockframe.c
+	wsmessage.c wsmessage_test.c
 	rqparser.c log.c)
 
 target_link_libraries(jabsocket_test ${LIBS})
