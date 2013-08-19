@@ -3,7 +3,7 @@
 #include <arpa/inet.h> /* for uint16_t, ntohs, etc */
 
 int
-unmask(unsigned char *input, size_t input_len, unsigned char *output,
+unmask_l(unsigned char *input, size_t input_len, unsigned char *output,
 	size_t *output_len)
 {
 	size_t index;
@@ -67,6 +67,19 @@ buffer_delete(buffer_t *buffer)
 {
 	free(buffer->data);
 	free(buffer);
+}
+
+int
+buffer_set_data(buffer_t *buffer, unsigned char *input, size_t length)
+{
+	buffer->length = 0;
+	return buffer_append(buffer, input, length);
+}
+
+void
+buffer_clear(buffer_t *buffer)
+{
+	buffer->length = 0;
 }
 
 int
@@ -152,6 +165,16 @@ buffer_remove_data(buffer_t *buffer, size_t length)
 {
 	memmove(buffer->data, buffer->data + length, buffer->capacity - length);
 	buffer->length -= length;
+}
+
+int
+buffer_move(buffer_t *src_buffer, buffer_t *dst_buffer)
+{
+	buffer_clear(dst_buffer);
+	if ( !buffer_append(dst_buffer, src_buffer->data, src_buffer->length) )
+		return 0;
+	buffer_clear(src_buffer);
+	return 1;
 }
 
 wsfbuffer_t *
@@ -259,7 +282,7 @@ wsfb_get_message(wsfbuffer_t *buffer, int *opcode, unsigned char **data,
 		tmp_data = (unsigned char*) malloc(message_length);
 		if (tmp_data == NULL)
 			goto Exit;
-		res = unmask(message, message_length + 4, tmp_data, output_length);
+		res = unmask_l(message, message_length + 4, tmp_data, output_length);
 		buffer_remove_data(buffer->buffer, length);
 		goto Exit;
 	}

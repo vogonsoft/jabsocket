@@ -13,7 +13,6 @@ Usage: makewsmessage.py [options]
 
 Options:
   -h, --help            show this help message and exit
-  -b, --binary          generate binary frames
   -m MAXSIZE, --maxsize=MAXSIZE
                         maximum size of payload per frame
   --prefix=PREFIX       prefix of variable that stores a frame
@@ -174,8 +173,6 @@ def create_c_array(name, data):
 
 def main():
 	parser = OptionParser()
-	parser.add_option('-b', '--binary', action='store_true', dest='binary',
-		default=False, help='generate binary frames')
 	parser.add_option('-m', '--maxsize', dest='maxsize', type='int',
 		default=False, help='maximum size of payload per frame')
 	parser.add_option('--prefix', dest='prefix',
@@ -196,10 +193,6 @@ def main():
 		print 'reading stdin'
 		fin = sys.stdin
 		read_stdin = True
-	if options.binary:
-		print 'Generating binary frames'
-	else:
-		print 'Generating text frames'
 	if options.maxsize:
 		print 'Maximum size of payload per frame: %d' % options.maxsize
 	else:
@@ -239,14 +232,14 @@ def main():
 				b = generate_frame(chunk, masked=not options.unmasked,
 					fragment=fragment,
 					mask=random_mask())
-			s = create_c_array('data' + str(i), b)
+			s = create_c_array(options.prefix + str(i), b)
 			print s
 			first = False
 			i = i + 1
 	else:
 		b = generate_frame(data, masked=not options.unmasked,
 			mask=['x', 'y', 'z', 't'], type=options.type)
-		s = create_c_array('data0', b)
+		s = create_c_array(options.prefix, b)
 		print s
 
 if __name__ == '__main__':

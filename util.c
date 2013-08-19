@@ -205,3 +205,18 @@ data_set_data(data_t *data, byte *data_in, size_t size)
 	data->length = i;
 }
 
+void
+unmask(byte *data, size_t length, byte *mask)
+{
+	size_t i, index;
+
+	index = 0;
+	for (i = 0, index = 0; i < length; data++, i++)
+	{
+		*data = *data ^ mask[index];
+		index++;
+		if (index == 4)
+			index = 0;
+	}
+}
+

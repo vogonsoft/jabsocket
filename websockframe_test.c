@@ -4,29 +4,6 @@
 #include "websockframe.h"
 #include "util.h"
 
-void TestUnmask(CuTest *tc)
-{
-	/* Note that input[] is not a complete WebSocket frame, only mask
-	   and payload */
-	unsigned char input[] =
-		{
-			0xb3, 0x11, 0x09, 0xc3, /* mask: b31109c3 */
-			0xfb, 0x74, 0x65, 0xaf, 0xdc, 0x31, 0x29, 0xf3
-				/* masked "Hello  0" */
-		};
-	unsigned char output[9]; /* for "Hello  0\0" */
-	unsigned char check_output[9] = "Hello  0";
-	int res;
-	size_t out_len;
-
-	out_len = sizeof(output);
-	res = unmask(input, sizeof(input), output, &out_len);
-	CuAssertTrue(tc, res);
-	CuAssertIntEquals(tc, 8, out_len);
-	res = memcmp(output, check_output, out_len);
-	CuAssertIntEquals(tc, 0, res);
-}
-
 void TestBuffer(CuTest *tc)
 {
 	buffer_t *buffer;
@@ -216,7 +193,6 @@ void TestLimitedSizeBuffer(CuTest *tc)
 CuSuite* WebSocketFrameGetSuite()
 {
 	CuSuite* suite = CuSuiteNew();
-	SUITE_ADD_TEST(suite, TestUnmask);
 	SUITE_ADD_TEST(suite, TestBuffer);
 	SUITE_ADD_TEST(suite, TestBuffer2);
 	SUITE_ADD_TEST(suite, TestGetFrame);

@@ -17,12 +17,15 @@ typedef struct _buffer_t
 buffer_t *buffer_create(size_t max_length);
 void buffer_delete(buffer_t *buffer);
 
+void buffer_clear(buffer_t *buffer);
 int buffer_append(buffer_t *buffer, unsigned char *data, size_t length);
 size_t buffer_get_length(buffer_t *buffer);
+int buffer_set_data(buffer_t *buffer, unsigned char *input, size_t length);
 void buffer_get_data(buffer_t *buffer, unsigned char *output, size_t length);
 void buffer_get_data2(buffer_t *buffer, data_t *data, size_t length);
 void buffer_peek_data(buffer_t *buffer, unsigned char **data, size_t *length);
 void buffer_remove_data(buffer_t *buffer, size_t length);
+int buffer_move(buffer_t *src_buffer, buffer_t *dst_buffer);
 
 /* WebSocket frame buffer */
 typedef struct _wsfbuffer_t
@@ -30,7 +33,7 @@ typedef struct _wsfbuffer_t
 	buffer_t *buffer;
 } wsfbuffer_t;
 
-int unmask(unsigned char *input, size_t input_len, unsigned char *output,
+int unmask_l(unsigned char *input, size_t input_len, unsigned char *output,
 	size_t *output_len);
 
 wsfbuffer_t *wsfb_create(jsconf_t *conf);

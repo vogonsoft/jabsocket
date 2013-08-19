@@ -51,5 +51,8 @@ size_t data_get_capacity(data_t *data);
 byte *data_get_buffer(data_t *data);
 void data_set_data(data_t *data, byte *data_in, size_t size);
 
+/* WebSocket frame unmask */
+void unmask(byte *data, size_t length, byte *mask);
+
 #endif /* _UTIL_H_ */
 
