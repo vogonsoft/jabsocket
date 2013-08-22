@@ -254,7 +254,10 @@ wsmsg_has_message(wsmsg_t *wsmsg)
 }
 
 int
-wsmsg_get_message(wsmsg_t *wsmsg, buffer_t *buffer)
+wsmsg_get_message(
+	wsmsg_t *wsmsg,
+	buffer_t *buffer,
+	int *opcode)
 {
 	int res;
 
@@ -262,20 +265,11 @@ wsmsg_get_message(wsmsg_t *wsmsg, buffer_t *buffer)
 		return 0;
 	wsmsg->message = 0;
 	res = buffer_move(wsmsg->message_buffer, buffer);
+	*opcode = wsmsg->message_opcode;
 	_wsmsg_process(wsmsg);
 	return res;
 }
 
-/* TODO: wsmsg_get_frame_data
-	Get these data:
-	buffer_t *frame_data;
-	int fin;
-	int opcode;
-	int mask;
-	
-	Set wsmsg->frame = 0;
-	Call _wsmsg_process(wsmsg) at the end.
-*/
 int wsmsg_has_frame(wsmsg_t *wsmsg)
 {
 	return wsmsg->frame;
@@ -301,5 +295,4 @@ wsmsg_get_frame(
 	_wsmsg_process(wsmsg);
 	return res;
 }
-
 

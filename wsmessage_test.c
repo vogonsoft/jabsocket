@@ -43,6 +43,7 @@ void TestSingleFrameMessage(CuTest *tc)
 		0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68
 	};
 	buffer_t *buffer;
+	int opcode;
 	
 	conf = config_create();
 	res = config_parse(conf, "./test/jabsocket.conf");
@@ -54,8 +55,9 @@ void TestSingleFrameMessage(CuTest *tc)
 	CuAssertTrue( tc, wsmsg_has_message(wsmsg) );
 	
 	buffer = buffer_create(0);
-	CuAssertTrue( tc, wsmsg_get_message(wsmsg, buffer) );
+	CuAssertTrue( tc, wsmsg_get_message(wsmsg, buffer, &opcode) );
 	CuAssertIntEquals(tc, 8, buffer->length);
+	CuAssertIntEquals(tc, OPCODE_TEXT, opcode);
 	CuAssertTrue( tc, (memcmp( buffer->data, check_output, 8) == 0) );
 	CuAssertTrue( tc, !wsmsg_has_message(wsmsg) );
 	
@@ -132,8 +134,9 @@ void TestControlFrame(CuTest *tc)
 	CuAssertTrue( tc, !wsmsg_fail(wsmsg) );
 	CuAssertTrue( tc, wsmsg_has_message(wsmsg) );
 
-	CuAssertTrue( tc, wsmsg_get_message(wsmsg, buffer) );
+	CuAssertTrue( tc, wsmsg_get_message(wsmsg, buffer, &opcode) );
 	CuAssertIntEquals(tc, 8, buffer->length);
+	CuAssertIntEquals(tc, OPCODE_TEXT, opcode);
 	CuAssertTrue( tc, (memcmp( buffer->data, check_output, 8) == 0) );
 	CuAssertTrue( tc, !wsmsg_has_message(wsmsg) );
 
