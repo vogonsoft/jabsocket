@@ -35,7 +35,7 @@ void str_append_char(str_t *str, char ch);
 void str_tolower(str_t *str);
 int str_is_equal_nocase(str_t *str, const char *other);
 
-/* Data buffer */
+/* Static data buffer - wrapper for an array on stack */
 
 typedef struct _data_t
 {
@@ -53,6 +53,29 @@ void data_set_data(data_t *data, byte *data_in, size_t size);
 
 /* WebSocket frame unmask */
 void unmask(byte *data, size_t length, byte *mask);
+
+/* Dynamic data buffer */
+
+typedef struct _buffer_t
+{
+	unsigned char *data;
+	size_t length;
+	size_t capacity;
+	size_t max_length;
+} buffer_t;
+
+buffer_t *buffer_create(size_t max_length);
+void buffer_delete(buffer_t *buffer);
+
+void buffer_clear(buffer_t *buffer);
+int buffer_append(buffer_t *buffer, unsigned char *data, size_t length);
+size_t buffer_get_length(buffer_t *buffer);
+int buffer_set_data(buffer_t *buffer, unsigned char *input, size_t length);
+void buffer_get_data(buffer_t *buffer, unsigned char *output, size_t length);
+void buffer_get_data2(buffer_t *buffer, data_t *data, size_t length);
+void buffer_peek_data(buffer_t *buffer, unsigned char **data, size_t *length);
+void buffer_remove_data(buffer_t *buffer, size_t length);
+int buffer_move(buffer_t *src_buffer, buffer_t *dst_buffer);
 
 #endif /* _UTIL_H_ */
 
