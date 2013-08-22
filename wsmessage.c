@@ -158,20 +158,18 @@ Exit:
 	return FS_BUILDING;
 }
 
-int
-wsmsg_add(wsmsg_t *wsmsg, byte *data, size_t length)
+static void
+_wsmsg_process(wsmsg_t *wsmsg)
 {
 	int fin;
 	int opcode;
 	int mask;
 	enum _frame_status_t fs;
 	int res;
-	
-	/* Check that we can accept more data */
-	if (wsmsg->frame || wsmsg->message || wsmsg->error)
-		goto Error;
 
-	res = buffer_append(wsmsg->frame_buffer, data, length);
+	if (wsmsg->message || wsmsg->frame || wsmsg->error)
+		return;
+
 	fs = get_frame(
 		wsmsg->frame_buffer,
 		&fin,
@@ -219,14 +217,28 @@ wsmsg_add(wsmsg_t *wsmsg, byte *data, size_t length)
 	}
 	if (fs == FS_ERROR)
 		goto Error;
-	goto Exit;
 
 Exit:
-	return 1;
+	return;
 
 Error:
 	wsmsg->error = 1;
-	return 0;
+}
+
+int
+wsmsg_add(wsmsg_t *wsmsg, byte *data, size_t length)
+{
+	int fin;
+	int opcode;
+	int mask;
+	enum _frame_status_t fs;
+	int res;
+	
+	res = buffer_append(wsmsg->frame_buffer, data, length);
+	if (!res)
+		return 0;
+	_wsmsg_process(wsmsg);
+	return 1;
 }
 
 int
@@ -244,9 +256,50 @@ wsmsg_has_message(wsmsg_t *wsmsg)
 int
 wsmsg_get_message(wsmsg_t *wsmsg, buffer_t *buffer)
 {
+	int res;
+
 	if (!wsmsg->message)
 		return 0;
 	wsmsg->message = 0;
-	return buffer_move(wsmsg->message_buffer, buffer);
+	res = buffer_move(wsmsg->message_buffer, buffer);
+	_wsmsg_process(wsmsg);
+	return res;
 }
+
+/* TODO: wsmsg_get_frame_data
+	Get these data:
+	buffer_t *frame_data;
+	int fin;
+	int opcode;
+	int mask;
+	
+	Set wsmsg->frame = 0;
+	Call _wsmsg_process(wsmsg) at the end.
+*/
+int wsmsg_has_frame(wsmsg_t *wsmsg)
+{
+	return wsmsg->frame;
+}
+
+int
+wsmsg_get_frame(
+	wsmsg_t *wsmsg,
+	buffer_t *buffer,
+	int *fin,
+	int *opcode,
+	int *mask)
+{
+	int res;
+
+	if (!wsmsg->frame)
+		return 0;
+	wsmsg->frame = 0;
+	res = buffer_move(wsmsg->frame_data, buffer);
+	*fin = wsmsg->fin;
+	*opcode = wsmsg->opcode;
+	*mask = wsmsg->mask;
+	_wsmsg_process(wsmsg);
+	return res;
+}
+
 

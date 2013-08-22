@@ -42,6 +42,13 @@ int wsmsg_add(wsmsg_t *wsmsg, byte *data, size_t length);
 int wsmsg_fail(wsmsg_t *wsmsg);
 int wsmsg_has_message(wsmsg_t *wsmsg);
 int wsmsg_get_message(wsmsg_t *wsmsg, buffer_t *buffer);
+int wsmsg_has_frame(wsmsg_t *wsmsg);
+int wsmsg_get_frame(
+	wsmsg_t *wsmsg,
+	buffer_t *buffer,
+	int *fin,
+	int *opcode,
+	int *mask);
 
 #endif /* _WSMESSAGE_H_ */
 

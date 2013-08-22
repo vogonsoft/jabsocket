@@ -64,9 +64,13 @@ void TestSingleFrameMessage(CuTest *tc)
 	config_delete(conf);
 }
 
-/* TODO: tests for multifragment message and control frames */
 void TestControlFrame(CuTest *tc)
 {
+	wsmsg_t *wsmsg;
+	jsconf_t *conf;
+	int res;
+	buffer_t *buffer;
+	
 	/* abcd */
 	byte data0[] = {
 		0x1, 0x84, 0x43, 0x99, 0x20, 0x8c, 0x22, 0xfb, 0x43, 0xe8 
@@ -81,6 +85,61 @@ void TestControlFrame(CuTest *tc)
 	byte close_frame[] = {
 		0x88, 0x89, 0x78, 0x79, 0x7a, 0x74, 0x7b, 0x91, 0x19, 0x18, 0x17, 0xa, 0x13, 0x1a, 0x1f 
 	};
+
+	/* check_output: "abcdefgh" */
+	byte check_output[] =
+	{
+		0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68
+	};
+
+	int fin;
+	int opcode;
+	int mask;
+
+	buffer = buffer_create(0);
+	conf = config_create();
+	res = config_parse(conf, "./test/jabsocket.conf");
+	wsmsg = wsmsg_create(conf);
+	CuAssertTrue( tc, (wsmsg != NULL) );
+	
+	wsmsg_add( wsmsg, data0, sizeof(data0) );
+	CuAssertTrue( tc, !wsmsg_fail(wsmsg) );
+	CuAssertTrue( tc, !wsmsg_has_message(wsmsg) );
+
+	/* Add Close frame */
+	wsmsg_add( wsmsg, close_frame, sizeof(close_frame) );
+
+	/* Add the second frame of the message */
+	wsmsg_add( wsmsg, data1, sizeof(data1) );
+
+	CuAssertTrue( tc, !wsmsg_fail(wsmsg) );
+	CuAssertTrue( tc, !wsmsg_has_message(wsmsg) );
+	CuAssertTrue( tc, wsmsg_has_frame(wsmsg) );
+	res = wsmsg_get_frame(
+		wsmsg,
+		buffer,
+		&fin,
+		&opcode,
+		&mask);
+	CuAssertTrue(tc, res);
+	CuAssertTrue(tc, mask);
+	CuAssertIntEquals(tc, OPCODE_CLOSE, opcode);
+
+	/* Try again; wsmsg_has_frame should return 0 now */
+	CuAssertTrue( tc, !wsmsg_has_frame(wsmsg) );
+
+	/* Now we have a message */
+	CuAssertTrue( tc, !wsmsg_fail(wsmsg) );
+	CuAssertTrue( tc, wsmsg_has_message(wsmsg) );
+
+	CuAssertTrue( tc, wsmsg_get_message(wsmsg, buffer) );
+	CuAssertIntEquals(tc, 8, buffer->length);
+	CuAssertTrue( tc, (memcmp( buffer->data, check_output, 8) == 0) );
+	CuAssertTrue( tc, !wsmsg_has_message(wsmsg) );
+
+	buffer_delete(buffer);
+	wsmsg_delete(wsmsg);
+	config_delete(conf);
 
 }
 
