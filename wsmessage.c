@@ -179,7 +179,7 @@ _wsmsg_process(wsmsg_t *wsmsg)
 			&mask,
 			wsmsg->frame_data);
 		if (fs == FS_BUILDING)
-			goto Exit;
+			return;
 		if (fs == FS_READY)
 		{
 			if ( (opcode == OPCODE_CLOSE) || (opcode == OPCODE_PING) ||
@@ -192,7 +192,7 @@ _wsmsg_process(wsmsg_t *wsmsg)
 				wsmsg->fin = fin;
 				wsmsg->opcode = opcode;
 				wsmsg->mask = mask;
-				goto Exit;
+				return;
 			}
 			if ( wsmsg->message_started && (opcode != OPCODE_CONTINUATION) )
 				goto Error;
@@ -218,9 +218,6 @@ _wsmsg_process(wsmsg_t *wsmsg)
 		if (fs == FS_ERROR)
 			goto Error;
 	}
-
-Exit:
-	return;
 
 Error:
 	wsmsg->error = 1;
