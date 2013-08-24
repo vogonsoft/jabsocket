@@ -170,53 +170,54 @@ _wsmsg_process(wsmsg_t *wsmsg)
 	if (wsmsg->message || wsmsg->frame || wsmsg->error)
 		return;
 
-	fs = get_frame(
-		wsmsg->frame_buffer,
-		&fin,
-		&opcode,
-		&mask,
-		wsmsg->frame_data);
-	if (fs == FS_BUILDING)
-		goto Exit;
-	if (fs == FS_READY)
+	while (1)
 	{
-		if ( (opcode == OPCODE_CLOSE) || (opcode == OPCODE_PING) ||
-			(opcode == OPCODE_PONG) )
-		{
-			/* RFC 6455: Control frames themselves MUST NOT be fragmented. */
-			if (!fin)
-				goto Error;
-			wsmsg->frame = 1;
-			wsmsg->fin = fin;
-			wsmsg->opcode = opcode;
-			wsmsg->mask = mask;
+		fs = get_frame(
+			wsmsg->frame_buffer,
+			&fin,
+			&opcode,
+			&mask,
+			wsmsg->frame_data);
+		if (fs == FS_BUILDING)
 			goto Exit;
-		}
-		if ( wsmsg->message_started && (opcode != OPCODE_CONTINUATION) )
-			goto Error;
-		if ( !wsmsg->message_started && (opcode == OPCODE_CONTINUATION) )
-			goto Error;
-
-		res = buffer_append(
-			wsmsg->message_buffer, 
-			wsmsg->frame_data->data,
-			wsmsg->frame_data->length);
-		if (!res)
-			goto Error;
-		if (!wsmsg->message_started)
+		if (fs == FS_READY)
 		{
-			wsmsg->message_started = 1;
-			wsmsg->message_opcode = opcode;
+			if ( (opcode == OPCODE_CLOSE) || (opcode == OPCODE_PING) ||
+				(opcode == OPCODE_PONG) )
+			{
+				/* RFC 6455: Control frames themselves MUST NOT be fragmented. */
+				if (!fin)
+					goto Error;
+				wsmsg->frame = 1;
+				wsmsg->fin = fin;
+				wsmsg->opcode = opcode;
+				wsmsg->mask = mask;
+				goto Exit;
+			}
+			if ( wsmsg->message_started && (opcode != OPCODE_CONTINUATION) )
+				goto Error;
+			if ( !wsmsg->message_started && (opcode == OPCODE_CONTINUATION) )
+				goto Error;
+
+			res = buffer_append(
+				wsmsg->message_buffer, 
+				wsmsg->frame_data->data,
+				wsmsg->frame_data->length);
+			if (!res)
+				goto Error;
+			if (!wsmsg->message_started)
+			{
+				wsmsg->message_started = 1;
+				wsmsg->message_opcode = opcode;
+			}
+			if (fin)
+				wsmsg->message = 1; /* We have a full message */
+			/* Remove data from frame_data */
+			buffer_remove_data(wsmsg->frame_data, wsmsg->frame_data->length);
 		}
-		if (fin)
-			wsmsg->message = 1; /* We have a full message */
-		/* Remove data from frame_data */
-		buffer_remove_data(wsmsg->frame_data, wsmsg->frame_data->length);
-		
-		goto Exit;
+		if (fs == FS_ERROR)
+			goto Error;
 	}
-	if (fs == FS_ERROR)
-		goto Error;
 
 Exit:
 	return;
@@ -264,6 +265,7 @@ wsmsg_get_message(
 	if (!wsmsg->message)
 		return 0;
 	wsmsg->message = 0;
+	wsmsg->message_started = 0;
 	res = buffer_move(wsmsg->message_buffer, buffer);
 	*opcode = wsmsg->message_opcode;
 	_wsmsg_process(wsmsg);
