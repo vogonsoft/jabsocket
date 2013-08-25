@@ -2,7 +2,6 @@
 #include "CuTest.h"
 #include "wsmessage.h"
 #include "util.h"
-#include "websockframe.h"
 
 void
 TestUnmask(CuTest *tc)

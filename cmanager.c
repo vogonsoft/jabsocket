@@ -138,7 +138,10 @@ cmanager(wsconn_t *conn, int what, void *ctx)
 		case WSCB_CONNECTED:
 			break;
 		case WSCB_MESSAGE:
-			cm_onmessage(cm, conn->message, conn->message_length);
+			cm_onmessage(
+				cm,
+				conn->message_buffer->data,
+				buffer_get_length(conn->message_buffer) );
 			break;
 		case WSCB_CLOSE:
 			cm_close(cm);

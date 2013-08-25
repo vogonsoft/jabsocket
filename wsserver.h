@@ -5,8 +5,9 @@
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 #include "rqparser.h"
-#include "websockframe.h"
 #include "parseconfig.h"
+#include "util.h"
+#include "wsmessage.h"
 
 /* Forward declarations */
 typedef struct _wsserver_t wsserver_t;
@@ -52,9 +53,10 @@ struct _wsconn_t
 	int fl_cm_closed;  /* wsconn_onclosed has been called */
 	struct bufferevent *bev;
 	request_t *req;
-	wsfbuffer_t *buffer;
-	unsigned char *message;
-	size_t message_length;
+	wsmsg_t *wsmsg; /* Object for processing incoming WebSocket frames */
+
+	buffer_t *message_buffer;
+
 	ws_cb_t cb;
 	void *cb_ctx;
 	void *custom_ctx;
@@ -63,10 +65,8 @@ struct _wsconn_t
 	char host[128];
 	char serv[32];
 	
-	/* Status and reason obtained when client closes connection */
+	/* Status obtained from Close frame received from the client */
 	uint16_t status;
-	unsigned char *reason;
-	size_t reason_length;
 };
 
 wsserver_t *ws_create(struct event_base *base, void *sin, size_t size);
@@ -89,7 +89,7 @@ void wsconn_initiate_close(wsconn_t *conn, uint16_t status, unsigned char *reaso
 	size_t reason_size);
 void wsconn_close(wsconn_t *conn);
 
-/* wsconn_close_delete does not close the connection immediately,
+/* wsconn_close_send does not close the connection immediately,
    but marks it for close. The connection will be closed after all output data
    has been sent out. We use this for example when we have to send an error
    response to the browser before closing the connection.

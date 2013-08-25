@@ -148,15 +148,20 @@ static wsconn_t *wsconn_create(
 		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create request parser\n");
 		goto Error;
 	}
-	conn->buffer = wsfb_create(conn->wsserver->conf);
-	if (conn->buffer == NULL)
+
+	conn->wsmsg = wsmsg_create(conn->wsserver->conf);
+	if (conn->wsmsg == NULL)
 	{
-		LOG(LOG_ERR, "wsserver.c:wsconn_create Couldn't create websockframe buffer");
+		LOG(LOG_ERR, "wsserver.c:wsmsg_create Couldn't create wsmsg_t instance");
 		goto Error;
 	}
-
-	conn->message = NULL;
-	conn->message_length = 0;
+	
+	conn->message_buffer = buffer_create(0);
+	if (conn->message_buffer == NULL)
+	{
+		LOG(LOG_ERR, "wsserver.c:wsmsg_create Couldn't create buffer_t instance");
+		goto Error;
+	}
 
 	conn->custom_ctx = (wsserver->create_cb)(conn);
 	if (conn->custom_ctx == NULL)
@@ -174,8 +179,10 @@ Error:
 	{
 		if (conn->custom_ctx != NULL)
 			(wsserver->delete_cb)(conn->custom_ctx);
-		if (conn->buffer != NULL)
-			wsfb_delete(conn->buffer);
+		if (conn->message_buffer != NULL)
+			buffer_delete(conn->message_buffer);
+		if (conn->wsmsg != NULL)
+			wsmsg_delete(conn->wsmsg);
 		if (conn->req != NULL)
 			rq_delete(conn->req);
 		free(conn);
@@ -189,10 +196,10 @@ static void wsconn_delete(wsconn_t *conn)
 		bufferevent_free(conn->bev);
 	if (conn->req != NULL)
 		rq_delete (conn->req);
-	if (conn->buffer != NULL)
-		wsfb_delete(conn->buffer);
-	free(conn->message);
-	free(conn->reason);
+	if (conn->message_buffer != NULL)
+		buffer_delete(conn->message_buffer);
+	if (conn->wsmsg != NULL)
+		wsmsg_delete(conn->wsmsg);
 	if (conn->cb != NULL)
 		conn->cb(conn, WSCB_DELETE, conn->custom_ctx);
 	free(conn);
@@ -247,9 +254,6 @@ wsconn_read_cb(struct bufferevent *bev, void *ctx)
 
 Error:
 	LOG(LOG_ERR, "wsserver.c:wsconn_read_cb: closing connection");
-	free(conn->message);
-	conn->message = NULL;
-	conn->message_length = 0;
 	wsconn_close(conn);
 }
 
@@ -294,6 +298,11 @@ wsconn_process_frame(wsconn_t *conn)
 	size_t line_length;
 	unsigned char *input_buffer;
 	struct bufferevent *bev;
+	buffer_t *buffer;
+	
+	buffer = buffer_create(0);
+	if (buffer == NULL)
+		goto Exit;
 
 	bev = conn->bev;
 	input = bufferevent_get_input(bev);
@@ -305,60 +314,112 @@ wsconn_process_frame(wsconn_t *conn)
 	{
 		LOG(LOG_WARNING,
 			"wsserver.c:wsconn_process_frame: malloc failed");
-		return;
+		goto Exit;
 	}
 	evbuffer_remove(input, input_buffer, length);
-	wsfb_append(conn->buffer, input_buffer, length);
+	// wsfb_append(conn->buffer, input_buffer, length);
+	wsmsg_add( conn->wsmsg, input_buffer, length );
 	free(input_buffer);
-	while (wsfb_have_message(conn->buffer))
+	while (1)
 	{
 		int opcode;
-		free(conn->message);
-		wsfb_get_message(conn->buffer, &opcode, &conn->message,
-			&conn->message_length);
-		if (conn->cb != NULL)
+		int fin;
+		int mask;
+		int res;
+
+		if ( wsmsg_fail(conn->wsmsg) )
 		{
-			if (opcode == 1)
-				conn->cb(conn, WSCB_MESSAGE, conn->custom_ctx);
-			else if (opcode == 8) /* Close frame */
+			LOG(LOG_ERR, "wsserver.c:wsconn_read_cb: error in input, closing connection");
+			wsconn_close(conn);
+			break;
+		}
+		if ( wsmsg_has_frame(conn->wsmsg) )
+		{
+			res = wsmsg_get_frame(
+				conn->wsmsg,
+				buffer,
+				&fin,
+				&opcode,
+				&mask);
+			if (!res)
+			{
+				LOG(LOG_ERR, "wsserver.c:wsconn_read_cb: error in frame, closing connection");
+				wsconn_close(conn);
+				break;
+			}
+			if (opcode == OPCODE_CLOSE) /* Close frame */
 			{
 				uint16_t *status_network;
+				buffer_t *buffer_reason;
 				
-				if (conn->message_length < 2)
+				buffer_reason = buffer_create(0);
+				if (buffer_reason == NULL)
+					goto Error;
+				
+				if ( buffer_get_length(buffer) < 2 )
+					/* Close frame has no status code */
 				{
 					conn->status = (uint16_t) 1001;
-					free(conn->reason);
-					conn->reason = NULL;
-					conn->reason_length = 0;
 				}
 				else
 				{
-					status_network = (uint16_t*)conn->message;
+					/* Copy status code from Close frame */
+					status_network = (uint16_t*)buffer->data;
 					conn->status = ntohs(*status_network);
-					if (conn->message_length > 2)
-					{
-						conn->reason = (unsigned char*)malloc(
-							conn->message_length - 2);
-						if (conn->reason != NULL)
-						{
-							memcpy(conn->reason, (conn->message+2),
-								conn->message_length - 2);
-							conn->reason_length =
-								conn->message_length-2;
-						}
-						else
-							conn->reason_length = 0;
-					}
+					if ( buffer_get_length(buffer) > 2 )
+						/* Copy reason from Close frame */
+						buffer_set_data(
+							buffer_reason,
+							buffer->data + 2,
+							buffer_get_length(buffer) - 2);
 				}
-				wsconn_initiate_close(conn, conn->status, conn->reason,
-					conn->reason_length);
+				wsconn_initiate_close(
+					conn,
+					conn->status,
+					buffer_reason->data,
+					buffer_get_length(buffer_reason) );
+				break;
+			}
+			if (opcode == OPCODE_PING)
+			{
+				/* Reply with pong; just send back the same application data
+				   (RFC 6455, Section 5.5.3. Pong) */
+				bufferevent_write(
+					conn->bev,
+					buffer->data,
+					buffer_get_length(buffer) );
+				break;
+			}
+			/* if opcode is OPCODE_PONG, ignore */
+			continue;
+		}
+		if ( !wsmsg_has_message(conn->wsmsg) )
+			break;
+
+		wsmsg_get_message(conn->wsmsg, conn->message_buffer, &opcode);
+		if (conn->cb != NULL)
+		{
+			if (opcode == OPCODE_TEXT)
+				conn->cb(conn, WSCB_MESSAGE, conn->custom_ctx);
+			else if (opcode == OPCODE_BINARY)
+			{
+				LOG(LOG_ERR, "wsserver.c:wsconn_read_cb: binary message "
+					"not allowed, closing connection");
+				wsconn_close(conn);
 				break;
 			}
 		}
-		free(conn->message);
-		conn->message = NULL;
-		conn->message_length = 0;
 	}
+
+Exit:
+	if (buffer != NULL)
+		buffer_delete(buffer);
+	return;
+
+Error:
+	if (buffer != NULL)
+		buffer_delete(buffer);
+	wsconn_close(conn);
 }
 
 
