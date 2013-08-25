@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 #include <expat.h>
-#include "websockframe.h"
 #include "util.h"
 
 typedef struct _frame_t frame_t;

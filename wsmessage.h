@@ -3,7 +3,6 @@
 
 #include "parseconfig.h"
 #include "util.h"
-#include "websockframe.h"
 
 /* WebSocket frame opcodes */
 #define OPCODE_CONTINUATION  0x00

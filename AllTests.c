@@ -5,7 +5,6 @@
 CuSuite* ConfigGetSuite();
 CuSuite* Base64GetSuite();
 CuSuite* ParserGetSuite();
-CuSuite* WebSocketFrameGetSuite();
 CuSuite* StreamParseGetSuite();
 CuSuite* FramerGetSuite();
 CuSuite* UtilGetSuite();
@@ -18,7 +17,6 @@ void RunAllTests(void) {
 	CuSuiteAddSuite(suite, ConfigGetSuite());
 	CuSuiteAddSuite(suite, Base64GetSuite());
 	CuSuiteAddSuite(suite, ParserGetSuite());
-	CuSuiteAddSuite(suite, WebSocketFrameGetSuite());
 	CuSuiteAddSuite(suite, StreamParseGetSuite());
 	CuSuiteAddSuite(suite, FramerGetSuite());
 	CuSuiteAddSuite(suite, UtilGetSuite());
