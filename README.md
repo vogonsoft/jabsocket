@@ -106,6 +106,38 @@ Unit test
 
 	make check
 
+Integration test
+----------------
+
+Integration test is written to work with Python testing library py.test.
+After you have built jabsocket binary, if you have py.test installed,
+run the test like this:
+
+	py.test test
+
+The tests are defined in the subdirectory test and currently they only test
+two things: WebSocket handshake and sending and receiving WebSocket frames.
+
+The test suite has some flexibility: by default it runs jabsocket that was
+built in the project root directory and uses jabsocket.conf for configuration.
+You can choose to run jabsocket by yourself and then tell the test suite not
+to run it; or, if you let the test suite run the binary, you can customize the
+path to the binary, the configuration file, host (default is localhost) and
+port (default is 5000, because that is the port defined in jabsocket.conf).
+You can get the options by running
+
+	py.test test --help
+
+It will display, among the predefined py.test options:
+
+	custom options:
+		--host=HOST         Host to connect to
+		--port=PORT         Port to connect to
+		--dontrunserver     Don't run the server
+		--server=SERVER     Path to server
+		--jsconfig=JSCONFIG
+				            Path to configuration file
+
 Documentation
 -------------
 
