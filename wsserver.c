@@ -23,6 +23,9 @@ static wsconn_t *wsconn_create(
 	int socklen);
 static void wsconn_delete(wsconn_t *conn);
 
+static void wsconn_write_frame(wsconn_t *conn, uint8_t opcode,
+	void *data, size_t size);
+
 /* States */
 enum _ws_state_t
 {
@@ -384,8 +387,9 @@ wsconn_process_frame(wsconn_t *conn)
 			{
 				/* Reply with pong; just send back the same application data
 				   (RFC 6455, Section 5.5.3. Pong) */
-				bufferevent_write(
-					conn->bev,
+				wsconn_write_frame(
+					conn,
+					OPCODE_PONG,
 					buffer->data,
 					buffer_get_length(buffer) );
 				break;

@@ -14,7 +14,7 @@ class TestProtocol:
 		r = client.recvFrame(1000)
 		assert r['data'] == 'abcd'
 		assert r['fin'] == 1
-		assert r['opcode'] == 9
+		assert r['opcode'] == 10
 
 	def test_close(self, client):
 		client.sendHandshakeRequest(host='localhost', subprotocol='xmpp')
